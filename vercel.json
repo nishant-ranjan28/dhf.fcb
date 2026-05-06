@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/api/live/stream",
+      "headers": [
+        { "key": "X-Accel-Buffering", "value": "no" },
+        { "key": "Cache-Control", "value": "no-cache, no-transform" }
+      ]
+    }
+  ]
+}

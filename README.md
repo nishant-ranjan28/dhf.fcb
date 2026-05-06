@@ -4,26 +4,40 @@ Mobile-first football web app focused on **FC Barcelona** (primary) and the **FI
 
 ## Stack
 
-- Next.js 15 (App Router) + React 19
+- Next.js 16 (App Router) + React 19.2 + Turbopack
 - TypeScript (strict)
 - Tailwind CSS 3
-- Node API routes + in-memory cache (Redis-ready interface)
+- Vitest for unit tests
+- Multi-source data chain: football-data.org → API-Football enrichment → openfootball static → mock
+- RSS-backed news (BBC, ESPN FC, Marca, Mundo Deportivo)
+- SSE for live match updates (one upstream poll fans out to all clients)
 
 ## Run
 
 ```bash
 npm install
-cp .env.example .env.local   # optional — defaults work
+cp .env.example .env.local
+# Optional: add FOOTBALL_DATA_API_KEY for real data — defaults to mock fixtures.
 npm run dev                  # http://localhost:3000
 ```
 
 Build & verify:
 
 ```bash
+npm run test         # unit tests
 npm run typecheck
 npm run build
 npm start
+./scripts/smoke.sh   # HTTP smoke test against localhost:3000
 ```
+
+## Deploy
+
+See [`docs/deploy.md`](docs/deploy.md) for the Vercel + custom-domain runbook including required env vars and post-deploy checks.
+
+## Implementation plan
+
+The full task breakdown is at [`docs/plans/2026-05-06-data-integration-and-launch-readiness.md`](docs/plans/2026-05-06-data-integration-and-launch-readiness.md).
 
 ## Project layout
 
