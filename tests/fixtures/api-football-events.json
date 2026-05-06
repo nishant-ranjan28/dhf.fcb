@@ -1,0 +1,6 @@
+{
+  "response": [
+    { "time": { "elapsed": 12 }, "team": { "name": "FC Barcelona" }, "player": { "name": "Lewandowski" }, "type": "Goal", "detail": "Normal Goal" },
+    { "time": { "elapsed": 28 }, "team": { "name": "Real Madrid" }, "player": { "name": "Vinícius" }, "type": "Card", "detail": "Yellow Card" }
+  ]
+}
