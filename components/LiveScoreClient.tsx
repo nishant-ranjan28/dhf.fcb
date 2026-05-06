@@ -27,7 +27,6 @@ export function LiveScoreClient({ initial }: { initial: Match }) {
     };
 
     if (typeof EventSource !== "undefined") {
-      let errors = 0;
       const es = new EventSource(`/api/live/stream?slug=${match.slug}`);
       es.onmessage = (e) => {
         try {
@@ -38,9 +37,10 @@ export function LiveScoreClient({ initial }: { initial: Match }) {
         }
       };
       es.onerror = () => {
-        errors += 1;
-        if (errors >= 2) {
-          es.close();
+        // EventSource fires onerror on transient blips AND on fatal close.
+        // Only fall back when the stream is genuinely closed (e.g. 404 from
+        // a bad slug) — otherwise the UA's built-in retry handles it.
+        if (es.readyState === EventSource.CLOSED) {
           cleanup = startPolling();
         }
       };
