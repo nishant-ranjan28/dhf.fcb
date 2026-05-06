@@ -29,12 +29,6 @@ export const SOURCES: RssSource[] = [
     lang: "en",
   },
   {
-    name: "Sky Sports — Barcelona",
-    url: "https://www.skysports.com/rss/12040",
-    category: "barca",
-    lang: "en",
-  },
-  {
     name: "r/Barca",
     url: "https://www.reddit.com/r/Barca/.rss",
     category: "barca",
