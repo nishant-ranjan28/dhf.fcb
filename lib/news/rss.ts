@@ -46,7 +46,7 @@ interface RssDoc {
 function stripHtml(s: string): string {
   return s
     .replace(/<[^>]*>/g, " ")
-    .replace(/&[a-z]+;/g, " ")
+    .replace(/&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -61,15 +61,19 @@ export function parseRss(xml: string, source: string, category: Competition): Ne
   const raw = doc.rss?.channel?.item;
   if (!raw) return [];
   const items = Array.isArray(raw) ? raw : [raw];
+  // Source-prefix the slug so two outlets running the same headline don't
+  // collide on getNewsBySlug. Keep the raw title-slug in the id for debug.
+  const sourceSlug = toSlug(source) || "src";
   return items
     .filter((it) => it.title)
     .map((it, i) => {
       const title = stripHtml(String(it.title));
-      const slug = toSlug(title) || `${source}-${i}`;
+      const titleSlug = toSlug(title) || `${i}`;
+      const slug = `${sourceSlug}-${titleSlug}`;
       const desc = stripHtml(String(it.description ?? "")).slice(0, 600);
       const created = it.pubDate ? new Date(it.pubDate) : new Date();
       return {
-        id: `${source}-${i}-${slug}`,
+        id: `${sourceSlug}-${i}-${titleSlug}`,
         slug,
         title,
         content: desc,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { createPost, listNews } from "@/lib/news";
 import type { Competition } from "@/lib/types";
 import { env } from "@/lib/env";
@@ -24,10 +25,22 @@ export async function GET(req: Request) {
   );
 }
 
-export async function POST(req: Request) {
+function authorize(req: Request): boolean {
+  if (!env.adminToken) return false;
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "");
-  if (!env.adminToken || token !== env.adminToken) {
+  // Timing-safe compare requires equal-length buffers; bail out early on
+  // length mismatch to avoid leaking the token length via response time.
+  if (token.length !== env.adminToken.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(token), Buffer.from(env.adminToken));
+  } catch {
+    return false;
+  }
+}
+
+export async function POST(req: Request) {
+  if (!authorize(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const body = (await req.json().catch(() => null)) as

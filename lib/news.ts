@@ -4,10 +4,18 @@ import { cached } from "./cache";
 import { env } from "./env";
 import { fetchAllNews } from "./news/rss";
 
+// In-process admin overrides. Lost on restart by design — admin overrides
+// are rarely used, and a DB pulls in deploy/auth scope this app doesn't need.
+// Posts here are merged on top of the RSS cache, NOT through it (so a fresh
+// admin POST appears immediately even though the 10-min RSS cache is hot).
 const adminPosts: NewsPost[] = [];
 
+async function loadRss(): Promise<NewsPost[]> {
+  return cached("news:rss", env.newsTtlSeconds, fetchAllNews);
+}
+
 export async function listNews(category?: Competition, limit = 20): Promise<NewsPost[]> {
-  const rss = await cached("news:rss", env.newsTtlSeconds, fetchAllNews);
+  const rss = await loadRss();
   const merged = [...adminPosts, ...rss];
   const filtered = category ? merged.filter((p) => p.category === category) : merged;
   return filtered
@@ -16,8 +24,10 @@ export async function listNews(category?: Competition, limit = 20): Promise<News
 }
 
 export async function getNewsBySlug(slug: string): Promise<NewsPost | null> {
-  const all = await listNews();
-  return all.find((p) => p.slug === slug) ?? null;
+  // Search the unsliced cache so a slug that has aged off the top-20 list
+  // still resolves on its detail page.
+  const rss = await loadRss();
+  return adminPosts.find((p) => p.slug === slug) ?? rss.find((p) => p.slug === slug) ?? null;
 }
 
 export function createPost(input: {
