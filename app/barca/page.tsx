@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SectionTitle } from "@/components/SectionTitle";
 import { NewsCard } from "@/components/NewsCard";
 import { MatchCard } from "@/components/MatchCard";
@@ -13,9 +14,17 @@ export const metadata = {
   description: "Latest Barca news, lineups, live scores and timelines.",
 };
 
-export default async function BarcaPage() {
+export default async function BarcaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const { lang } = await searchParams;
+  const showAll = lang === "all";
+  const langs = showAll ? undefined : ["en"];
+
   const [posts, matches] = await Promise.all([
-    listNews("barca", 20),
+    listNews("barca", 20, { langs }),
     getMatchesByCompetition("barca"),
   ]);
 
@@ -39,10 +48,41 @@ export default async function BarcaPage() {
       <TelegramCTA />
 
       <SectionTitle title="Latest News" />
+      <div className="px-4 mb-2 flex items-center gap-2 text-[11px]">
+        <span className="text-ink-muted">Showing:</span>
+        <Link
+          href="/barca"
+          className={`px-2 py-0.5 rounded-md ring-1 ${
+            !showAll
+              ? "bg-barca-blue/30 text-white ring-barca-blue/60"
+              : "text-ink-muted ring-ink-line hover:text-white"
+          }`}
+        >
+          English
+        </Link>
+        <Link
+          href="/barca?lang=all"
+          className={`px-2 py-0.5 rounded-md ring-1 ${
+            showAll
+              ? "bg-barca-blue/30 text-white ring-barca-blue/60"
+              : "text-ink-muted ring-ink-line hover:text-white"
+          }`}
+        >
+          All languages
+        </Link>
+      </div>
       <div className="px-4 space-y-2">
-        {posts.map((p) => (
-          <NewsCard key={p.id} post={p} />
-        ))}
+        {posts.length === 0 ? (
+          <div className="text-sm text-ink-muted py-3 text-center">
+            No posts. Try{" "}
+            <Link href="/barca?lang=all" className="text-barca-gold">
+              All languages
+            </Link>
+            .
+          </div>
+        ) : (
+          posts.map((p) => <NewsCard key={p.id} post={p} />)
+        )}
       </div>
 
       <AdSlot size="300x250" />

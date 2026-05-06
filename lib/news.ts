@@ -14,10 +14,24 @@ async function loadRss(): Promise<NewsPost[]> {
   return cached("news:rss", env.newsTtlSeconds, fetchAllNews);
 }
 
-export async function listNews(category?: Competition, limit = 20): Promise<NewsPost[]> {
+export interface ListNewsOpts {
+  /** Restrict to these ISO 639-1 codes. `undefined` = all languages.
+   *  Admin posts (no `lang`) are always included since they're hand-curated. */
+  langs?: string[];
+}
+
+export async function listNews(
+  category?: Competition,
+  limit = 20,
+  opts: ListNewsOpts = {},
+): Promise<NewsPost[]> {
   const rss = await loadRss();
   const merged = [...adminPosts, ...rss];
-  const filtered = category ? merged.filter((p) => p.category === category) : merged;
+  let filtered = category ? merged.filter((p) => p.category === category) : merged;
+  if (opts.langs) {
+    const wanted = new Set(opts.langs);
+    filtered = filtered.filter((p) => p.lang === undefined || wanted.has(p.lang));
+  }
   return filtered
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, limit);

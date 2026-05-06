@@ -15,7 +15,7 @@ export const metadata = {
 
 export default async function FifaPage() {
   const [posts, matches] = await Promise.all([
-    listNews("fifa", 20),
+    listNews("fifa", 20, { langs: ["en"] }),
     getMatchesByCompetition("fifa"),
   ]);
 

@@ -17,7 +17,7 @@ export const revalidate = 60;
 export default async function HomePage() {
   const [live, barcaNews, fifaUpcoming, fifaLive, trending] = await Promise.all([
     getLiveMatches(),
-    listNews("barca", 5),
+    listNews("barca", 5, { langs: ["en"] }),
     getUpcomingMatches(3),
     getMatchesByCompetition("fifa"),
     getTrendingMatches(4),

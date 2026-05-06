@@ -5,17 +5,50 @@ import { parseRss } from "@/lib/news/rss";
 describe("parseRss", () => {
   it("parses RSS 2.0 with multiple items", async () => {
     const xml = await readFile("tests/fixtures/bbc-football.xml", "utf8");
-    const items = parseRss(xml, "bbc", "fifa");
+    const items = parseRss(xml, "bbc", "fifa", "en");
     expect(items.length).toBe(2);
     expect(items[0].title).toBe("Yamal stars in Barcelona win");
     expect(items[0].slug).toMatch(/^[a-z0-9-]+$/);
-    // Slug should be source-prefixed so duplicate headlines across feeds
-    // don't collide.
     expect(items[0].slug.startsWith("bbc-")).toBe(true);
     expect(items[0].category).toBe("fifa");
+    expect(items[0].lang).toBe("en");
+    expect(items[0].link).toBe("https://www.bbc.com/sport/football/articles/abc");
     expect(items[0].content).toContain("Lamine Yamal");
     expect(items[0].content).not.toContain("<p>");
     expect(items[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("tags items with the source language", () => {
+    const xml = `<?xml version="1.0"?><rss><channel><item><title>Hola</title></item></channel></rss>`;
+    const items = parseRss(xml, "marca", "barca", "es");
+    expect(items[0].lang).toBe("es");
+  });
+
+  it("parses Atom feeds (Reddit-style)", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>r/Barca</title>
+  <entry>
+    <title>Match thread: Barcelona vs Real Madrid</title>
+    <link rel="alternate" href="https://www.reddit.com/r/Barca/comments/abc"/>
+    <updated>2026-05-06T20:00:00+00:00</updated>
+    <published>2026-05-06T19:00:00+00:00</published>
+    <summary>Pre-match discussion</summary>
+  </entry>
+  <entry>
+    <title>Yamal extends contract</title>
+    <link rel="alternate" href="https://www.reddit.com/r/Barca/comments/def"/>
+    <updated>2026-05-06T18:00:00+00:00</updated>
+    <published>2026-05-06T17:00:00+00:00</published>
+    <summary>Big news today</summary>
+  </entry>
+</feed>`;
+    const items = parseRss(xml, "r/Barca", "barca", "en");
+    expect(items).toHaveLength(2);
+    expect(items[0].title).toBe("Match thread: Barcelona vs Real Madrid");
+    expect(items[0].link).toBe("https://www.reddit.com/r/Barca/comments/abc");
+    expect(items[0].lang).toBe("en");
+    expect(items[0].category).toBe("barca");
   });
 
   it("survives numeric/named HTML entities in title and content", () => {

@@ -54,4 +54,8 @@ export interface NewsPost {
   content: string;
   category: Competition;
   createdAt: string; // ISO
+  /** ISO 639-1 language code; "en", "es", etc. Undefined for admin posts. */
+  lang?: string;
+  /** Original article URL (RSS only). Used for the Translate link. */
+  link?: string;
 }

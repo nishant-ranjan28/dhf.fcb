@@ -14,7 +14,14 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const cat = url.searchParams.get("category");
   const limit = Number(url.searchParams.get("limit") ?? 20);
-  const posts = await listNews(isCategory(cat) ? cat : undefined, limit);
+  // ?lang=en or ?lang=en,es. Omit for all languages.
+  const langParam = url.searchParams.get("lang");
+  const langs = langParam ? langParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+  const posts = await listNews(
+    isCategory(cat) ? cat : undefined,
+    limit,
+    langs ? { langs } : {},
+  );
   return NextResponse.json(
     { posts },
     {
