@@ -8,17 +8,22 @@ interface FdTeam {
   crest?: string;
 }
 
+type FdStatus =
+  | "SCHEDULED"
+  | "TIMED"
+  | "IN_PLAY"
+  | "PAUSED"
+  | "FINISHED"
+  | "POSTPONED"
+  | "SUSPENDED"
+  | "CANCELLED"
+  | "AWARDED";
+
 interface FdMatch {
   id: number;
   competition: { code: string; name: string };
   utcDate: string;
-  status:
-    | "SCHEDULED"
-    | "TIMED"
-    | "IN_PLAY"
-    | "PAUSED"
-    | "FINISHED"
-    | "POSTPONED";
+  status: FdStatus;
   minute?: number;
   homeTeam: FdTeam;
   awayTeam: FdTeam;
@@ -30,20 +35,30 @@ interface FdMatch {
 }
 
 interface FdResponse {
-  matches: FdMatch[];
+  matches: FdMatch[] | null;
 }
 
 // LaLiga + UCL — Barca-relevant; everything else falls to 'other'
 const BARCA_COMPS = new Set(["PD", "CL"]);
 const FIFA_COMPS = new Set(["WC"]);
 
+// Statuses we drop entirely — UI has no representation for them yet, and
+// surfacing them as SCHED would mislead users into thinking the match is on.
+const SKIP_STATUSES = new Set<FdStatus>([
+  "POSTPONED",
+  "SUSPENDED",
+  "CANCELLED",
+  "AWARDED",
+]);
+
 function classify(code: string): Competition {
-  if (FIFA_COMPS.has(code)) return "fifa";
-  if (BARCA_COMPS.has(code)) return "barca";
+  const c = code?.trim().toUpperCase() ?? "";
+  if (FIFA_COMPS.has(c)) return "fifa";
+  if (BARCA_COMPS.has(c)) return "barca";
   return "other";
 }
 
-function toStatus(s: FdMatch["status"]): MatchStatus {
+function toStatus(s: FdStatus): MatchStatus {
   switch (s) {
     case "IN_PLAY":
       return "LIVE";
@@ -57,7 +72,9 @@ function toStatus(s: FdMatch["status"]): MatchStatus {
 }
 
 export function mapFootballDataMatches(raw: FdResponse): Match[] {
-  return raw.matches.map((m) => ({
+  return (raw.matches ?? [])
+    .filter((m) => !SKIP_STATUSES.has(m.status))
+    .map((m) => ({
     slug: matchSlug(m.homeTeam.name, m.awayTeam.name),
     competition: classify(m.competition.code),
     competitionName: m.competition.name,
@@ -89,3 +106,8 @@ export function mapFootballDataMatches(raw: FdResponse): Match[] {
     lineupAway: { formation: "4-3-3", starting: [] },
   }));
 }
+
+// stats and lineups stub out as zeros / empty here; real values come from
+// API-Football enrichment in lib/football/providers/apiFootball.ts (Task 7).
+// Score 0–0 for SCHED is hidden by MatchCard, which renders "vs" instead —
+// see components/MatchCard.tsx Score().
