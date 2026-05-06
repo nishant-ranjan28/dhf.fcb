@@ -36,6 +36,7 @@ export class HttpError extends Error {
     public body?: string,
   ) {
     super(`HTTP ${status} from ${url}`);
+    this.name = "HttpError";
   }
 }
 
