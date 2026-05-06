@@ -1,4 +1,6 @@
-const TELEGRAM_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL ?? "https://t.me/";
+import { env } from "@/lib/env";
+
+const TELEGRAM_URL = env.telegramUrl;
 
 export function TelegramCTA({ variant = "strip" }: { variant?: "strip" | "sticky" }) {
   if (variant === "sticky") {
