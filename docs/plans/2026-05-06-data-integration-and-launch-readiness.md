@@ -141,23 +141,15 @@ describe("matchSlug", () => {
 });
 ```
 
-**Step 5: Run — should FAIL on the diacritics test**
+**Step 5: Run tests**
 
 ```bash
 npm test
 ```
 
-Expected: `toSlug("Atlético Madrid")` returns `"atl-tico-madrid"` (current regex `[̀-ͯ]` is malformed). Confirm the failure first.
+> **Note added 2026-05-06 after Task 1 execution:** The plan originally expected the diacritic test to fail because the regex `/[̀-ͯ]/g` *looked* malformed in source. It isn't — byte inspection (`xxd`) shows the character class spans `cc 80` (U+0300) to `cd af` (U+036F), which is exactly the combining-diacritical-marks block. So the existing `lib/slug.ts` is correct as-is and no fix is required. The test still earns its keep as a regression guard.
 
-**Step 6: Fix `lib/slug.ts`**
-
-Change the diacritic-stripping line to a proper Unicode range:
-
-```ts
-.replace(/[̀-ͯ]/g, "")
-```
-
-**Step 7: Re-run tests, all pass**
+**Step 6: Tests should pass (3/3)**
 
 ```bash
 npm test
