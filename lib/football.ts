@@ -9,12 +9,10 @@ import type {
 } from "./types";
 import { cached } from "./cache";
 import { matchSlug } from "./slug";
-
-// Provider switch: set FOOTBALL_PROVIDER=api-football and FOOTBALL_API_KEY to wire a real API.
-// Default is mock so the app runs out of the box without credentials.
-const PROVIDER = process.env.FOOTBALL_PROVIDER ?? "mock";
-const TTL_LIVE = Number(process.env.SCORES_TTL_SECONDS ?? 30);
-const TTL_LIST = Number(process.env.LIST_TTL_SECONDS ?? 60);
+import { env } from "./env";
+import { fetchFootballDataMatches } from "./football/providers/footballData";
+import { loadStaticFixtures } from "./football/providers/staticFixtures";
+import { ProviderChain } from "./football/chain";
 
 // ---------- Mock data seeds ----------
 
@@ -258,11 +256,23 @@ function allMockMatches(): Match[] {
 
 // ---------- Public data API ----------
 
+function buildChain(): ProviderChain {
+  const providers: Array<{ name: string; fn: () => Promise<Match[]> }> = [];
+  if (env.footballDataKey) {
+    providers.push({
+      name: "football-data.org",
+      fn: () => fetchFootballDataMatches({ apiKey: env.footballDataKey! }),
+    });
+  }
+  providers.push({ name: "openfootball-static", fn: () => loadStaticFixtures() });
+  providers.push({ name: "mock", fn: async () => allMockMatches() });
+  return new ProviderChain(providers);
+}
+
+const chain = buildChain();
+
 export async function getAllMatches(): Promise<Match[]> {
-  return cached("matches:all", TTL_LIST, async () => {
-    if (PROVIDER === "api-football") return fetchApiFootballAll();
-    return allMockMatches();
-  });
+  return cached("matches:all", env.listTtlSeconds, () => chain.getAll());
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
@@ -302,12 +312,3 @@ export async function getMatchBySlug(slug: string): Promise<Match | null> {
   return all.find((m) => m.slug === slug) ?? null;
 }
 
-// ---------- Real provider stub (api-football) ----------
-// Wire this when you have a key. Kept thin so the rest of the app doesn't change.
-
-async function fetchApiFootballAll(): Promise<Match[]> {
-  // Intentionally fall back to mock if not implemented or key is missing.
-  // Replace with real fetch + transform to `Match`.
-  if (!process.env.FOOTBALL_API_KEY) return allMockMatches();
-  return allMockMatches();
-}
