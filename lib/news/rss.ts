@@ -18,10 +18,13 @@ export interface RssSource {
   excludeTitle?: RegExp;
 }
 
-// Match Reddit's recurring noise: "Match thread", "Post-match thread",
-// "Open Thread", "Daily Thread", "Free Talk", and the `[N] - N` score-event
-// thread pattern (e.g. "Barça W [2] - 0 Levante W").
-const REDDIT_THREAD_NOISE = /(\b(match|open|daily|post[-\s]?match|pre[-\s]?match|free[-\s]?talk)[-\s]+thread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\])/i;
+// Match Reddit's recurring noise:
+//  - any title containing the word "thread" (Match/Post-match/Open/Daily/
+//    Free Talk/Opinion/Controversial Opinion threads — all recurring r/Barca
+//    threads. Real news headlines essentially never use "thread" as a word.)
+//  - the `[N] - N` and `[N] - [N]` score-event thread pattern Reddit uses
+//    for goals (e.g. "Barça W [2] - 0 Levante W").
+const REDDIT_THREAD_NOISE = /\bthread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\]/i;
 
 // Order doesn't matter for output (results are sorted by date), but it does
 // determine which source's slug-prefix wins on duplicate-id collisions.

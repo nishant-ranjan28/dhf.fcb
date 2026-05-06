@@ -103,12 +103,13 @@ describe("applySourceLimits", () => {
       p("Daily thread - Tuesday"),
       p("Post-match thread: Barcelona 2-1 Real Madrid"),
       p("Free talk thread"),
+      p("Bi-Monthly Controversial Opinion Thread: April 2026 Edition"),
       p("Barça W [2] - 0 Levante W - Claudia Pina"),
       p("[1] - 0 Barcelona vs Real Madrid - Lewandowski"),
       p("Yamal extends contract through 2030"),
       p("Lewandowski hits 200 club goals"),
     ];
-    const noise = /(\b(match|open|daily|post[-\s]?match|pre[-\s]?match|free[-\s]?talk)[-\s]+thread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\])/i;
+    const noise = /\bthread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\]/i;
     const out = applySourceLimits(posts, {
       name: "r/Barca",
       url: "x",
