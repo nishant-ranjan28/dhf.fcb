@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFile } from "node:fs/promises";
-import { parseRss } from "@/lib/news/rss";
+import { applySourceLimits, parseRss } from "@/lib/news/rss";
+import type { NewsPost } from "@/lib/types";
 
 describe("parseRss", () => {
   it("parses RSS 2.0 with multiple items", async () => {
@@ -79,5 +80,77 @@ describe("parseRss", () => {
   it("returns empty for malformed input", () => {
     expect(parseRss("not xml at all", "test", "barca")).toEqual([]);
     expect(parseRss("", "test", "barca")).toEqual([]);
+  });
+});
+
+describe("applySourceLimits", () => {
+  function p(title: string): NewsPost {
+    return {
+      id: title,
+      slug: title.toLowerCase().replace(/\s+/g, "-"),
+      title,
+      content: "",
+      category: "barca",
+      createdAt: new Date().toISOString(),
+      lang: "en",
+    };
+  }
+
+  it("drops items matching excludeTitle", () => {
+    const posts = [
+      p("Match thread: Barcelona vs Real Madrid"),
+      p("Open Thread #19"),
+      p("Daily thread - Tuesday"),
+      p("Post-match thread: Barcelona 2-1 Real Madrid"),
+      p("Free talk thread"),
+      p("Barça W [2] - 0 Levante W - Claudia Pina"),
+      p("[1] - 0 Barcelona vs Real Madrid - Lewandowski"),
+      p("Yamal extends contract through 2030"),
+      p("Lewandowski hits 200 club goals"),
+    ];
+    const noise = /(\b(match|open|daily|post[-\s]?match|pre[-\s]?match|free[-\s]?talk)[-\s]+thread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\])/i;
+    const out = applySourceLimits(posts, {
+      name: "r/Barca",
+      url: "x",
+      category: "barca",
+      lang: "en",
+      excludeTitle: noise,
+    });
+    expect(out.map((x) => x.title)).toEqual([
+      "Yamal extends contract through 2030",
+      "Lewandowski hits 200 club goals",
+    ]);
+  });
+
+  it("caps to maxItems after filtering", () => {
+    const noise = /thread/i;
+    const posts = [
+      p("Match thread"),     // dropped
+      p("Open thread"),      // dropped
+      p("Real news 1"),
+      p("Real news 2"),
+      p("Real news 3"),
+      p("Real news 4"),
+    ];
+    const out = applySourceLimits(posts, {
+      name: "test",
+      url: "x",
+      category: "barca",
+      lang: "en",
+      excludeTitle: noise,
+      maxItems: 2,
+    });
+    expect(out.map((x) => x.title)).toEqual(["Real news 1", "Real news 2"]);
+  });
+
+  it("returns input unchanged when no filters set", () => {
+    const posts = [p("a"), p("b"), p("c")];
+    const out = applySourceLimits(posts, {
+      name: "test",
+      url: "x",
+      category: "barca",
+      lang: "en",
+    });
+    expect(out).toBe(posts);
   });
 });

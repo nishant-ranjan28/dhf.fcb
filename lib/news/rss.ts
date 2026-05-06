@@ -10,7 +10,18 @@ export interface RssSource {
   category: Competition;
   /** ISO 639-1 language code. Used to default-filter user-facing feeds. */
   lang: string;
+  /** Cap items per fetch from this source. Useful for high-volume feeds
+   *  (Reddit subreddit feeds emit ~25 items, mostly fan reactions). */
+  maxItems?: number;
+  /** Drop items whose title matches this pattern. Useful for skipping
+   *  Reddit match/open/daily threads and `[score]` event threads. */
+  excludeTitle?: RegExp;
 }
+
+// Match Reddit's recurring noise: "Match thread", "Post-match thread",
+// "Open Thread", "Daily Thread", "Free Talk", and the `[N] - N` score-event
+// thread pattern (e.g. "Barça W [2] - 0 Levante W").
+const REDDIT_THREAD_NOISE = /(\b(match|open|daily|post[-\s]?match|pre[-\s]?match|free[-\s]?talk)[-\s]+thread\b|\[\s*\d+\s*\][-\s]+\d+|\[\s*\d+\s*\][-\s]+\[\s*\d+\s*\])/i;
 
 // Order doesn't matter for output (results are sorted by date), but it does
 // determine which source's slug-prefix wins on duplicate-id collisions.
@@ -33,6 +44,8 @@ export const SOURCES: RssSource[] = [
     url: "https://www.reddit.com/r/Barca/.rss",
     category: "barca",
     lang: "en",
+    maxItems: 10,
+    excludeTitle: REDDIT_THREAD_NOISE,
   },
   // ----- English FIFA / general football -----
   {
@@ -191,6 +204,21 @@ function buildPost(o: BuildPostOpts): NewsPost {
   };
 }
 
+/** Apply a source's optional excludeTitle filter and maxItems cap. Filter
+ *  runs FIRST so the cap counts post-filter items (otherwise a high-noise
+ *  source could drop all real posts and surface only filtered noise). */
+export function applySourceLimits(posts: NewsPost[], source: RssSource): NewsPost[] {
+  let out = posts;
+  if (source.excludeTitle) {
+    const re = source.excludeTitle;
+    out = out.filter((p) => !re.test(p.title));
+  }
+  if (source.maxItems !== undefined) {
+    out = out.slice(0, source.maxItems);
+  }
+  return out;
+}
+
 export async function fetchAllNews(): Promise<NewsPost[]> {
   const results = await Promise.allSettled(
     SOURCES.map(async (s) => {
@@ -199,7 +227,8 @@ export async function fetchAllNews(): Promise<NewsPost[]> {
         headers: { "user-agent": "BarcaPulse/1.0 (+https://example.com)" },
       });
       if (!res.ok) throw new Error(`${s.name}: HTTP ${res.status}`);
-      return parseRss(await res.text(), s.name, s.category, s.lang);
+      const parsed = parseRss(await res.text(), s.name, s.category, s.lang);
+      return applySourceLimits(parsed, s);
     }),
   );
   return results
