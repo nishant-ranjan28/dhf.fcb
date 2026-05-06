@@ -1,5 +1,6 @@
 import type { Competition, Match, MatchStatus } from "@/lib/types";
 import { matchSlug } from "@/lib/slug";
+import { fetchJson, rateLimited } from "@/lib/http";
 
 interface FdTeam {
   id: number;
@@ -111,3 +112,28 @@ export function mapFootballDataMatches(raw: FdResponse): Match[] {
 // API-Football enrichment in lib/football/providers/apiFootball.ts (Task 7).
 // Score 0–0 for SCHED is hidden by MatchCard, which renders "vs" instead —
 // see components/MatchCard.tsx Score().
+
+const FD_BASE = "https://api.football-data.org/v4";
+// 10 req/min on free tier per docs.
+const limiter = rateLimited({ maxPerWindow: 10, windowMs: 60_000 });
+
+export interface FdOpts {
+  apiKey: string;
+  competitions?: string[];
+  status?: string;
+}
+
+export async function fetchFootballDataMatches({
+  apiKey,
+  competitions = ["PD", "CL", "WC"],
+  status,
+}: FdOpts): Promise<Match[]> {
+  const params = new URLSearchParams();
+  params.set("competitions", competitions.join(","));
+  if (status) params.set("status", status);
+  const url = `${FD_BASE}/matches?${params}`;
+  const json = await limiter(() =>
+    fetchJson<FdResponse>(url, { headers: { "X-Auth-Token": apiKey } }),
+  );
+  return mapFootballDataMatches(json);
+}
