@@ -269,10 +269,20 @@ function buildChain(): ProviderChain {
   return new ProviderChain(providers);
 }
 
-const chain = buildChain();
+// Lazy: built on first access so `resetEnvCache()` + `resetChain()` in tests
+// can flip provider configuration without reloading the module.
+let chain: ProviderChain | null = null;
+function getChain(): ProviderChain {
+  if (!chain) chain = buildChain();
+  return chain;
+}
+
+export function resetChain(): void {
+  chain = null;
+}
 
 export async function getAllMatches(): Promise<Match[]> {
-  return cached("matches:all", env.listTtlSeconds, () => chain.getAll());
+  return cached("matches:all", env.listTtlSeconds, () => getChain().getAll());
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
