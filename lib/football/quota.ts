@@ -33,4 +33,9 @@ export class Quota {
     this.prune();
     return Math.max(0, this.opts.limit - this.hits.length);
   }
+
+  /** Clear all recorded hits — primarily for tests. */
+  reset(): void {
+    this.hits.length = 0;
+  }
 }

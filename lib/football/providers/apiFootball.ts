@@ -110,6 +110,13 @@ const LEAGUE_BY_COMP_NAME: Record<string, number> = {
   "UEFA Champions League": 2,
 };
 
+/** Whether we know how to query API-Football for this competition. Use as a
+ *  pre-flight check before consuming quota — unmapped competitions (Copa del
+ *  Rey, friendlies, etc.) would just return null after a wasted lookup. */
+export function hasMappedLeague(competitionName: string): boolean {
+  return competitionName in LEAGUE_BY_COMP_NAME;
+}
+
 /**
  * Resolve the API-Football fixture id for a given Match. We do NOT have a
  * stable cross-provider team-id mapping, so we look up by date + league and

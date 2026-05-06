@@ -12,6 +12,7 @@ import { resetEnvCache } from "@/lib/env";
 import { invalidate } from "@/lib/cache";
 import {
   _resetEnrichmentState,
+  _resetQuota,
   getMatchBySlug,
   resetChain,
 } from "@/lib/football";
@@ -80,6 +81,7 @@ describe("getMatchBySlug enrichment", () => {
     resetEnvCache();
     resetChain();
     _resetEnrichmentState();
+    _resetQuota();
     // matches list is cached process-wide; clear so each test rebuilds
     // through the freshly-configured chain.
     invalidate("matches:all");

@@ -14,6 +14,7 @@ import { fetchFootballDataMatches } from "./football/providers/footballData";
 import {
   _resetFixtureIdCache,
   fetchApiFootballEvents,
+  hasMappedLeague,
   resolveAfFixtureId,
 } from "./football/providers/apiFootball";
 import { loadStaticFixtures } from "./football/providers/staticFixtures";
@@ -334,10 +335,16 @@ const apiFootballQuota = new Quota({
   windowMs: 24 * 60 * 60 * 1000,
 });
 
-const ENRICH_HORIZON_MS = 60 * 60 * 1000;
+const PRE_KICKOFF_HORIZON_MS = 60 * 60 * 1000; // 60 min before kickoff
+const POST_KICKOFF_STALE_MS = 6 * 60 * 60 * 1000; // 6 h after kickoff
 
 export function _resetEnrichmentState(): void {
   _resetFixtureIdCache();
+}
+
+/** Reset the API-Football daily quota — for tests only. */
+export function _resetQuota(): void {
+  apiFootballQuota.reset();
 }
 
 async function maybeEnrich(base: Match): Promise<Match> {
@@ -345,10 +352,21 @@ async function maybeEnrich(base: Match): Promise<Match> {
   // Budget: only enrich Barca matches. World Cup/other comps stay on
   // football-data.org's data alone — they're not the value-add for this app.
   if (base.competition !== "barca") return base;
+  // No mapped API-Football league for this competition (Copa del Rey,
+  // friendlies, etc.) — fail fast before consuming quota.
+  if (!hasMappedLeague(base.competitionName)) return base;
   // Skip far-future scheduled matches; nothing to enrich and quota is scarce.
   if (
     base.status === "SCHED" &&
-    +new Date(base.kickoff) - Date.now() > ENRICH_HORIZON_MS
+    +new Date(base.kickoff) - Date.now() > PRE_KICKOFF_HORIZON_MS
+  ) {
+    return base;
+  }
+  // Skip stale FT matches — events won't change, no need to refresh after a
+  // few hours. Also keeps idle bots off the quota.
+  if (
+    base.status === "FT" &&
+    Date.now() - +new Date(base.kickoff) > POST_KICKOFF_STALE_MS
   ) {
     return base;
   }
@@ -365,7 +383,11 @@ async function maybeEnrich(base: Match): Promise<Match> {
       homeName: base.home.name,
     });
     return { ...base, events: events.length > 0 ? events : base.events };
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[apiFootball] enrich failed for ${base.slug}:`,
+      err instanceof Error ? err.message : err,
+    );
     return base;
   }
 }
