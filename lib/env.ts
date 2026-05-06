@@ -21,6 +21,11 @@ export const env: AppEnv = new Proxy({} as AppEnv, {
   },
 });
 
+function num(v: string | undefined, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 function build(): AppEnv {
   const fd = process.env.FOOTBALL_DATA_API_KEY?.trim() || undefined;
   const af = process.env.API_FOOTBALL_KEY?.trim() || undefined;
@@ -31,10 +36,10 @@ function build(): AppEnv {
     apiFootballKey: af,
     enrichmentEnabled: Boolean(af),
     adminToken: process.env.ADMIN_TOKEN?.trim() || undefined,
-    telegramUrl: process.env.NEXT_PUBLIC_TELEGRAM_URL ?? "https://t.me/",
-    scoresTtlSeconds: Number(process.env.SCORES_TTL_SECONDS ?? 30),
-    listTtlSeconds: Number(process.env.LIST_TTL_SECONDS ?? 60),
-    newsTtlSeconds: Number(process.env.NEWS_TTL_SECONDS ?? 600),
+    telegramUrl: process.env.NEXT_PUBLIC_TELEGRAM_URL?.trim() || "https://t.me/",
+    scoresTtlSeconds: num(process.env.SCORES_TTL_SECONDS, 30),
+    listTtlSeconds: num(process.env.LIST_TTL_SECONDS, 60),
+    newsTtlSeconds: num(process.env.NEWS_TTL_SECONDS, 600),
   };
 }
 
