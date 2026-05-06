@@ -9,20 +9,49 @@ export function LiveScoreClient({ initial }: { initial: Match }) {
   useEffect(() => {
     if (match.status === "FT") return;
     let stopped = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(`/api/scores/${match.slug}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const json = (await res.json()) as { match: Match };
-        if (!stopped && json.match) setMatch(json.match);
-      } catch {
-        // silent — next tick will retry
-      }
+    let cleanup: () => void = () => {};
+
+    const startPolling = (): (() => void) => {
+      const tick = async () => {
+        try {
+          const res = await fetch(`/api/scores/${match.slug}`, { cache: "no-store" });
+          if (!res.ok) return;
+          const json = (await res.json()) as { match: Match };
+          if (!stopped && json.match) setMatch(json.match);
+        } catch {
+          // silent — next tick will retry
+        }
+      };
+      const interval = setInterval(tick, 30_000);
+      return () => clearInterval(interval);
     };
-    const interval = setInterval(tick, 30_000);
+
+    if (typeof EventSource !== "undefined") {
+      let errors = 0;
+      const es = new EventSource(`/api/live/stream?slug=${match.slug}`);
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data) as { match?: Match };
+          if (!stopped && data.match) setMatch(data.match);
+        } catch {
+          // ignore malformed payloads
+        }
+      };
+      es.onerror = () => {
+        errors += 1;
+        if (errors >= 2) {
+          es.close();
+          cleanup = startPolling();
+        }
+      };
+      cleanup = () => es.close();
+    } else {
+      cleanup = startPolling();
+    }
+
     return () => {
       stopped = true;
-      clearInterval(interval);
+      cleanup();
     };
   }, [match.slug, match.status]);
 
