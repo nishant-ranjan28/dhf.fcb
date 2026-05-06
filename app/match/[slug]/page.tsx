@@ -4,6 +4,7 @@ import { LiveScoreClient } from "@/components/LiveScoreClient";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { getAllMatches, getMatchBySlug } from "@/lib/football";
+import { env } from "@/lib/env";
 import type { Metadata } from "next";
 
 export const revalidate = 30;
@@ -42,11 +43,13 @@ export default async function MatchPage({
     "@type": "SportsEvent",
     name: `${match.home.name} vs ${match.away.name}`,
     startDate: match.kickoff,
+    sport: "Soccer",
+    url: `${env.siteUrl}/match/${match.slug}`,
     ...(match.venue && {
       location: { "@type": "Place", name: match.venue },
     }),
-    homeTeam: { "@type": "SportsTeam", name: match.home.name },
-    awayTeam: { "@type": "SportsTeam", name: match.away.name },
+    homeTeam: { "@type": "SportsTeam", name: match.home.name, sport: "Soccer" },
+    awayTeam: { "@type": "SportsTeam", name: match.away.name, sport: "Soccer" },
     eventStatus:
       match.status === "FT"
         ? "https://schema.org/EventCompleted"

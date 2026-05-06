@@ -7,10 +7,9 @@ import { BottomNav } from "@/components/BottomNav";
 import { env } from "@/lib/env";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
-const SITE_URL = process.env.SITE_URL ?? "https://example.com";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  metadataBase: new URL(env.siteUrl),
   title: {
     default: "BarcaPulse — Live football, Barca & FIFA",
     template: "%s · BarcaPulse",
