@@ -1,0 +1,15 @@
+{
+  "matches": [
+    {
+      "id": 1,
+      "competition": { "code": "PD", "name": "Primera Division" },
+      "utcDate": "2026-05-06T20:00:00Z",
+      "status": "IN_PLAY",
+      "minute": 67,
+      "homeTeam": { "id": 81, "name": "FC Barcelona", "tla": "BAR", "crest": "https://crests.football-data.org/81.svg" },
+      "awayTeam": { "id": 86, "name": "Real Madrid", "tla": "RMA", "crest": "https://crests.football-data.org/86.svg" },
+      "score": { "fullTime": { "home": 2, "away": 1 }, "halfTime": { "home": 1, "away": 0 } },
+      "venue": "Spotify Camp Nou"
+    }
+  ]
+}
