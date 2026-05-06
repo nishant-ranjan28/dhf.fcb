@@ -1,4 +1,4 @@
-import type { MatchEvent } from "@/lib/types";
+import type { Match, MatchEvent } from "@/lib/types";
 import { fetchJson } from "@/lib/http";
 
 interface AfEvent {
@@ -75,4 +75,89 @@ export async function fetchApiFootballEvents(opts: {
     { headers: { "x-apisports-key": opts.apiKey } },
   );
   return mapApiFootballEvents(json, opts.homeName);
+}
+
+// ---------- Fixture-id resolution ----------
+
+interface AfFixture {
+  fixture: { id: number; date: string };
+  teams: {
+    home: { id: number; name: string };
+    away: { id: number; name: string };
+  };
+  league: { id: number; season: number };
+}
+interface AfFixturesResp {
+  response: AfFixture[];
+}
+
+interface FixtureIdCacheEntry {
+  id: number | null;
+  expires: number;
+}
+
+const fixtureIdCache = new Map<string, FixtureIdCacheEntry>();
+const FIXTURE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// football-data.org uses "Primera Division", common docs/UI use "LaLiga".
+// Map both to the same API-Football league id (140 = Spanish Primera, 2 = UCL).
+const LEAGUE_BY_COMP_NAME: Record<string, number> = {
+  "Primera Division": 140,
+  "Primera División": 140,
+  LaLiga: 140,
+  "La Liga": 140,
+  "Champions League": 2,
+  "UEFA Champions League": 2,
+};
+
+/**
+ * Resolve the API-Football fixture id for a given Match. We do NOT have a
+ * stable cross-provider team-id mapping, so we look up by date + league and
+ * match team names with `normalizeTeamName`. Result (including null misses)
+ * is cached by `match.slug` for 24h to avoid burning quota on repeated
+ * lookups for the same match.
+ */
+export async function resolveAfFixtureId(opts: {
+  apiKey: string;
+  match: Match;
+}): Promise<number | null> {
+  const cached = fixtureIdCache.get(opts.match.slug);
+  if (cached && cached.expires > Date.now()) return cached.id;
+
+  const date = opts.match.kickoff.slice(0, 10); // YYYY-MM-DD
+  const leagueId = LEAGUE_BY_COMP_NAME[opts.match.competitionName];
+  if (!leagueId) {
+    fixtureIdCache.set(opts.match.slug, {
+      id: null,
+      expires: Date.now() + FIXTURE_TTL_MS,
+    });
+    return null;
+  }
+
+  let id: number | null = null;
+  try {
+    const json = await fetchJson<AfFixturesResp>(
+      `https://v3.football.api-sports.io/fixtures?date=${date}&league=${leagueId}`,
+      { headers: { "x-apisports-key": opts.apiKey } },
+    );
+    const homeKey = normalizeTeamName(opts.match.home.name);
+    const awayKey = normalizeTeamName(opts.match.away.name);
+    const found = json.response.find(
+      (f) =>
+        normalizeTeamName(f.teams.home.name) === homeKey &&
+        normalizeTeamName(f.teams.away.name) === awayKey,
+    );
+    id = found?.fixture.id ?? null;
+  } catch {
+    id = null;
+  }
+  fixtureIdCache.set(opts.match.slug, {
+    id,
+    expires: Date.now() + FIXTURE_TTL_MS,
+  });
+  return id;
+}
+
+export function _resetFixtureIdCache(): void {
+  fixtureIdCache.clear();
 }

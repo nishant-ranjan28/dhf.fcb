@@ -11,8 +11,14 @@ import { cached } from "./cache";
 import { matchSlug } from "./slug";
 import { env } from "./env";
 import { fetchFootballDataMatches } from "./football/providers/footballData";
+import {
+  _resetFixtureIdCache,
+  fetchApiFootballEvents,
+  resolveAfFixtureId,
+} from "./football/providers/apiFootball";
 import { loadStaticFixtures } from "./football/providers/staticFixtures";
 import { ProviderChain } from "./football/chain";
+import { Quota } from "./football/quota";
 
 // ---------- Mock data seeds ----------
 
@@ -317,8 +323,57 @@ function weight(m: Match): number {
   return 30 - (+new Date(m.kickoff) - Date.now()) / 60_000 / 60;
 }
 
+// ---------- Per-match enrichment (API-Football) ----------
+
+// 100 req/day on API-Football's free tier; cap at 90 to leave headroom for
+// ad-hoc lookups (fixture-id resolution + events = 2 calls per cold match).
+// Single shared instance per process — `new Quota()` per call would silently
+// disable the limiter.
+const apiFootballQuota = new Quota({
+  limit: 90,
+  windowMs: 24 * 60 * 60 * 1000,
+});
+
+const ENRICH_HORIZON_MS = 60 * 60 * 1000;
+
+export function _resetEnrichmentState(): void {
+  _resetFixtureIdCache();
+}
+
+async function maybeEnrich(base: Match): Promise<Match> {
+  if (!env.enrichmentEnabled || !env.apiFootballKey) return base;
+  // Budget: only enrich Barca matches. World Cup/other comps stay on
+  // football-data.org's data alone — they're not the value-add for this app.
+  if (base.competition !== "barca") return base;
+  // Skip far-future scheduled matches; nothing to enrich and quota is scarce.
+  if (
+    base.status === "SCHED" &&
+    +new Date(base.kickoff) - Date.now() > ENRICH_HORIZON_MS
+  ) {
+    return base;
+  }
+  if (!apiFootballQuota.tryConsume()) return base;
+  try {
+    const fixtureId = await resolveAfFixtureId({
+      apiKey: env.apiFootballKey,
+      match: base,
+    });
+    if (!fixtureId) return base;
+    const events = await fetchApiFootballEvents({
+      apiKey: env.apiFootballKey,
+      fixtureId,
+      homeName: base.home.name,
+    });
+    return { ...base, events: events.length > 0 ? events : base.events };
+  } catch {
+    return base;
+  }
+}
+
 export async function getMatchBySlug(slug: string): Promise<Match | null> {
   const all = await getAllMatches();
-  return all.find((m) => m.slug === slug) ?? null;
+  const base = all.find((m) => m.slug === slug);
+  if (!base) return null;
+  return maybeEnrich(base);
 }
 
