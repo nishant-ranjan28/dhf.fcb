@@ -2,6 +2,10 @@ import { getMatchBySlug } from "@/lib/football";
 import type { Match } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+// Vercel Hobby caps function execution at 10s, killing SSE mid-stream;
+// the client falls back to /api/scores polling. On Pro/Enterprise we
+// extend to 5 min — a single match-window's worth of streaming.
+export const maxDuration = 300;
 
 // One shared poll loop per slug. New subscribers get the cached snapshot
 // immediately, then receive every subsequent tick. Loop self-disposes when

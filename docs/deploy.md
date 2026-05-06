@@ -60,6 +60,12 @@ Without these, ad placeholders render with the right dimensions (no CLS jump whe
 | `LIST_TTL_SECONDS` | `60` |
 | `NEWS_TTL_SECONDS` | `600` |
 
+## 3a. Vercel plan — note on SSE
+
+The match page uses Server-Sent Events at `/api/live/stream`. The route is configured with `maxDuration = 300` (5 min). Vercel Hobby caps function execution at **10s**, which will close the stream prematurely; the client gracefully falls back to `/api/scores/[slug]` polling so users still get updates. **For real SSE behavior, deploy on Pro+.** The fallback means launch on Hobby is fine, just slightly less efficient.
+
+The `prebuild` script (`scripts/fetch-static-fixtures.mjs`) refreshes `data/worldcup-2026.json` from openfootball on every build. The file is also committed to git, so a cold build with no network access still produces a working fallback.
+
 ## 4. Custom domain
 
 1. **Project → Settings → Domains** → add your domain.
@@ -93,4 +99,4 @@ The footer CTA points at `NEXT_PUBLIC_TELEGRAM_URL`. For the goal-alerts bot its
 
 Every push to `main` triggers a Production deploy. Pull requests get Preview URLs automatically.
 
-The `prebuild` script (`scripts/fetch-static-fixtures.mjs`) fetches the openfootball World Cup schedule on every build. If openfootball is unreachable at build time, the script warns but does not fail — the previous `data/worldcup-2026.json` (committed cache miss aside) is reused. Force a refresh by re-deploying.
+The `prebuild` script (`scripts/fetch-static-fixtures.mjs`) fetches the openfootball World Cup schedule on every build. If openfootball is unreachable at build time, the script warns but does not fail — the committed `data/worldcup-2026.json` is reused. Force a refresh by re-deploying.
