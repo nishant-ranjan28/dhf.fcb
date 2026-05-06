@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>BBC Sport - Football</title>
+    <link>https://www.bbc.com/sport/football</link>
+    <description>BBC Sport Football news</description>
+    <item>
+      <title>Yamal stars in Barcelona win</title>
+      <link>https://www.bbc.com/sport/football/articles/abc</link>
+      <description>&lt;p&gt;Lamine Yamal scored twice as Barcelona beat Real Madrid.&lt;/p&gt;</description>
+      <pubDate>Wed, 06 May 2026 20:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Mbappé fit for World Cup</title>
+      <link>https://www.bbc.com/sport/football/articles/def</link>
+      <description>France striker passed late fitness test.</description>
+      <pubDate>Wed, 06 May 2026 18:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

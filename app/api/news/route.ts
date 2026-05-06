@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createPost, listNews } from "@/lib/news";
 import type { Competition } from "@/lib/types";
+import { env } from "@/lib/env";
 
 export const revalidate = 60;
 
@@ -24,6 +25,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.replace(/^Bearer\s+/i, "");
+  if (!env.adminToken || token !== env.adminToken) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const body = (await req.json().catch(() => null)) as
     | { title?: string; content?: string; category?: string }
     | null;
