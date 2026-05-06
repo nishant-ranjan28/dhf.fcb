@@ -37,8 +37,30 @@ export default async function MatchPage({
   const match = await getMatchBySlug(slug);
   if (!match) notFound();
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    name: `${match.home.name} vs ${match.away.name}`,
+    startDate: match.kickoff,
+    ...(match.venue && {
+      location: { "@type": "Place", name: match.venue },
+    }),
+    homeTeam: { "@type": "SportsTeam", name: match.home.name },
+    awayTeam: { "@type": "SportsTeam", name: match.away.name },
+    eventStatus:
+      match.status === "FT"
+        ? "https://schema.org/EventCompleted"
+        : match.status === "LIVE" || match.status === "HT"
+          ? "https://schema.org/EventInProgress"
+          : "https://schema.org/EventScheduled",
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="px-4 mt-3">
         <Link href="/" className="text-xs text-ink-muted">
           ← Back
