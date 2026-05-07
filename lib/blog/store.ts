@@ -2,12 +2,22 @@ import { Redis } from "@upstash/redis";
 import { toSlug } from "@/lib/slug";
 import type { BlogPost, BlogPostInput } from "./types";
 
-// Upstash Redis is enabled when both env vars are present (Vercel Marketplace
-// auto-injects them). Locally they're absent and we fall back to an in-memory
-// Map so the dev server works out of the box. Posts written locally are lost
-// on restart — fine for development.
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Upstash Redis is enabled when both env vars are present.
+//
+// We accept either variable-name pair:
+//   - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
+//       What @upstash/redis docs use; what you'd set manually.
+//   - KV_REST_API_URL / KV_REST_API_TOKEN
+//       What the Vercel Marketplace "Upstash for Redis" integration injects
+//       (it preserves the legacy @vercel/kv names for backward compatibility).
+//
+// Locally none of these are set and we fall back to an in-memory Map so the
+// dev server works out of the box. Posts written locally are lost on restart
+// — fine for development.
+const REDIS_URL =
+  process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 
 const POSTS_INDEX_KEY = "blog:index"; // sorted set of slugs scored by createdAt
 const POST_KEY_PREFIX = "blog:post:";

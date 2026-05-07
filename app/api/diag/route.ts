@@ -7,8 +7,18 @@ export const dynamic = "force-dynamic";
 // to Upstash so we can see whether the page-side store is actually backed by
 // Redis or is silently falling back to in-memory.
 export async function GET() {
-  const hasUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL);
-  const hasToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+  const hasUrl = Boolean(
+    process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL,
+  );
+  const hasToken = Boolean(
+    process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN,
+  );
+  const which = {
+    upstash_url: Boolean(process.env.UPSTASH_REDIS_REST_URL),
+    upstash_token: Boolean(process.env.UPSTASH_REDIS_REST_TOKEN),
+    kv_url: Boolean(process.env.KV_REST_API_URL),
+    kv_token: Boolean(process.env.KV_REST_API_TOKEN),
+  };
   let listLen: number | string = "?";
   let listErr: string | null = null;
   try {
@@ -20,7 +30,7 @@ export async function GET() {
   return NextResponse.json({
     runtime: process.env.NEXT_RUNTIME ?? "nodejs",
     nodeEnv: process.env.NODE_ENV,
-    upstash: { hasUrl, hasToken },
+    upstash: { hasUrl, hasToken, which },
     store: { listLen, listErr },
     siteUrl: process.env.SITE_URL ?? null,
   });
