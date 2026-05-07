@@ -5,7 +5,10 @@ import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { blogStore } from "@/lib/blog/store";
 
-export const revalidate = 60;
+// Read-on-request like /blog/[slug] — keeps the list current after admin
+// publishes/deletes without waiting for the ISR window or revalidatePath
+// to round-trip. Single Redis ZRANGE+MGET, sub-50ms typically.
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "BarcaPulse Blog — Long-form Barca writing",

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { blogStore } from "@/lib/blog/store";
 import { isAdminAuthorized } from "@/lib/blog/auth";
 import type { BlogPostInput } from "@/lib/blog/types";
@@ -40,6 +41,11 @@ export async function POST(req: Request) {
       tags: body.tags,
       author: body.author,
     });
+    // Invalidate the list and the new post's detail page so the new post
+    // is visible immediately, not after the ISR window expires.
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+    revalidatePath("/sitemap.xml");
     return NextResponse.json({ post }, { status: 201 });
   } catch (err) {
     return NextResponse.json(

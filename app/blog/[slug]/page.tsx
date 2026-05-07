@@ -7,7 +7,11 @@ import { blogStore } from "@/lib/blog/store";
 import { renderMarkdown } from "@/lib/blog/markdown";
 import { env } from "@/lib/env";
 
-export const revalidate = 60;
+// force-dynamic: the post page reads from Upstash on every request. We
+// previously used ISR (revalidate=60) but a 404 cached at the moment
+// Upstash was unreachable would persist for the full window. Page render
+// is server-fast (single Redis GET); skipping ISR is the correct trade.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

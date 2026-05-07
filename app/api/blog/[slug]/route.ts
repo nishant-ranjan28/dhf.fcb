@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { blogStore } from "@/lib/blog/store";
 import { isAdminAuthorized } from "@/lib/blog/auth";
 
@@ -31,5 +32,8 @@ export async function DELETE(
   const { slug } = await params;
   const ok = await blogStore().delete(slug);
   if (!ok) return NextResponse.json({ error: "not found" }, { status: 404 });
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${slug}`);
+  revalidatePath("/sitemap.xml");
   return NextResponse.json({ deleted: slug });
 }
