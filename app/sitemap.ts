@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllMatches } from "@/lib/football";
+import { blogStore } from "@/lib/blog/store";
 import { env } from "@/lib/env";
 
 export const revalidate = 3600;
@@ -8,7 +9,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.siteUrl;
   const now = new Date();
 
-  const matches = await getAllMatches().catch(() => []);
+  const [matches, blogPosts] = await Promise.all([
+    getAllMatches().catch(() => []),
+    blogStore().list({ limit: 1000 }).catch(() => []),
+  ]);
 
   return [
     {
@@ -40,6 +44,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(m.kickoff),
       changeFrequency: "hourly" as const,
       priority: 0.7,
+    })),
+    {
+      url: `${base}/blog`,
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.85,
+    },
+    ...blogPosts.map((p) => ({
+      url: `${base}/blog/${p.slug}`,
+      lastModified: new Date(p.updatedAt),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
     })),
     // News pages don't have detail routes yet (no /news/[slug] route).
     // Skip news entries until the route exists.

@@ -135,9 +135,22 @@ POST requires `Bearer ${ADMIN_TOKEN}`; comparison is timing-safe. Without `ADMIN
 - Site-wide OG image at `/opengraph-image` (1200×630, `next/og`).
 - Match pages emit `SportsEvent` JSON-LD with `eventStatus`, `sport`, canonical `url`.
 
+## Blog
+
+Long-form posts at `/blog` + `/blog/<slug>`. Admin-only authoring at `/admin/blog/new` (gated by `ADMIN_TOKEN` cookie set via `/admin/login`).
+
+- **Markdown body** with raw HTML allowed (admin trusted) → all media types via paste:
+  - Images: `![alt](https://...)`
+  - YouTube: paste the URL on its own line → auto-embeds 16:9 iframe
+  - Twitter / Instagram / oEmbed: paste the publisher's iframe HTML
+  - Tables, code blocks, blockquotes via standard GFM
+- **Storage:** Upstash Redis (free tier via Vercel Marketplace). In-memory fallback when Upstash env vars are unset (dev only — posts vanish on restart).
+- **SEO:** each post emits BlogPosting JSON-LD, OpenGraph article metadata, and appears in `/sitemap.xml`. `/admin/*` is `noindex` and disallowed in `robots.txt`.
+
+To enable persistence in production, add the Upstash Redis integration on Vercel — see [`docs/deploy.md`](docs/deploy.md).
+
 ## Roadmap
 
-- Redis swap (interface ready).
 - Real-time goal push notifications (Telegram bot worker).
-- Admin UI for news (POST endpoint exists; no UI yet).
+- Blog post editing (currently delete + recreate; edit endpoint not yet exposed).
 - Historical xG via nightly `soccerdata` ETL into the static fixtures pipeline.

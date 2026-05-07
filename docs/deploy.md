@@ -38,6 +38,22 @@ Add these in **Project → Settings → Environment Variables** (apply to Produc
 | `NEXT_PUBLIC_TELEGRAM_URL` | `https://t.me/your_channel` | The CTA links here |
 | `ADMIN_TOKEN` | (random 32-byte hex) | `openssl rand -hex 32`. Used for `POST /api/news` |
 
+### Optional — blog persistence (Upstash Redis)
+
+The blog (`/blog` + `/admin/blog`) uses **Upstash Redis** for post storage. Without it, posts vanish on each lambda cold start (acceptable for testing the editor; not for live posts).
+
+1. **Vercel → Project → Storage → Marketplace → Upstash Redis** (or Integrations → Browse → Upstash → Add).
+2. Pick the **free** tier. Connect it to the project. Vercel auto-injects two env vars:
+
+| Key | Source |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | from Upstash integration |
+| `UPSTASH_REDIS_REST_TOKEN` | from Upstash integration |
+
+3. Redeploy. The blog now persists.
+
+To write posts, navigate to `/admin/login`, paste your `ADMIN_TOKEN`, then `/admin/blog/new`.
+
 ### Optional — enrichment
 | Key | Value | Notes |
 |---|---|---|

@@ -22,4 +22,74 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .aspect-video {
+    aspect-ratio: 16 / 9;
+  }
 }
+
+/* Long-form blog body. We avoid pulling in @tailwindcss/typography since
+ * we only need a handful of overrides on the rendered Markdown HTML. */
+.prose-blog {
+  word-wrap: break-word;
+}
+.prose-blog > * + * { margin-top: 1rem; }
+.prose-blog h1, .prose-blog h2, .prose-blog h3, .prose-blog h4 {
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.5rem;
+}
+.prose-blog h1 { font-size: 1.5rem; }
+.prose-blog h2 { font-size: 1.25rem; }
+.prose-blog h3 { font-size: 1.1rem; }
+.prose-blog p { color: #e5e7eb; }
+.prose-blog a { color: #EDBB00; text-decoration: underline; text-underline-offset: 2px; }
+.prose-blog a:hover { color: #fff; }
+.prose-blog strong { color: #fff; font-weight: 700; }
+.prose-blog em { color: #f3f4f6; font-style: italic; }
+.prose-blog ul, .prose-blog ol { padding-left: 1.5rem; color: #e5e7eb; }
+.prose-blog ul { list-style: disc; }
+.prose-blog ol { list-style: decimal; }
+.prose-blog li + li { margin-top: 0.25rem; }
+.prose-blog blockquote {
+  border-left: 3px solid #A50044;
+  padding-left: 1rem;
+  color: #d1d5db;
+  font-style: italic;
+}
+.prose-blog code {
+  background: #15151B;
+  border: 1px solid #23232B;
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.9em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.prose-blog pre {
+  background: #0F0F14;
+  border: 1px solid #23232B;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+}
+.prose-blog pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.prose-blog img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #23232B;
+}
+.prose-blog iframe { max-width: 100%; }
+.prose-blog table { width: 100%; border-collapse: collapse; }
+.prose-blog th, .prose-blog td {
+  border: 1px solid #23232B;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-blog th { background: #15151B; color: #fff; }
+.prose-blog hr { border-color: #23232B; }

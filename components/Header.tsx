@@ -5,6 +5,7 @@ const tabs = [
   { href: "/barca", label: "Barca" },
   { href: "/fifa", label: "FIFA" },
   { href: "/live", label: "Live" },
+  { href: "/blog", label: "Blog" },
 ];
 
 export function Header() {
