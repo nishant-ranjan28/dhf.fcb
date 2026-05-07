@@ -4,6 +4,7 @@ import { BlogCard } from "@/components/BlogCard";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { blogStore } from "@/lib/blog/store";
+import { viewStore } from "@/lib/blog/views";
 
 // Read-on-request like /blog/[slug] — keeps the list current after admin
 // publishes/deletes without waiting for the ISR window or revalidatePath
@@ -18,6 +19,9 @@ export const metadata = {
 
 export default async function BlogPage() {
   const posts = await blogStore().list({ limit: 30 });
+  const views = posts.length
+    ? await viewStore().getBatch(posts.map((p) => p.slug))
+    : {};
 
   return (
     <>
@@ -35,7 +39,7 @@ export default async function BlogPage() {
       ) : (
         <div className="px-4 space-y-3">
           {posts.map((p) => (
-            <BlogCard key={p.slug} post={p} />
+            <BlogCard key={p.slug} post={p} views={views[p.slug] ?? 0} />
           ))}
         </div>
       )}

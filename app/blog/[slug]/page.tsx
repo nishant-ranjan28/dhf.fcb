@@ -3,8 +3,11 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
+import { ShareButtons } from "@/components/ShareButtons";
+import { ViewBeacon } from "@/components/ViewBeacon";
 import { blogStore } from "@/lib/blog/store";
 import { renderMarkdown } from "@/lib/blog/markdown";
+import { viewStore, formatViews } from "@/lib/blog/views";
 import { env } from "@/lib/env";
 
 // force-dynamic: the post page reads from Upstash on every request. We
@@ -47,6 +50,8 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   const html = renderMarkdown(post.body);
+  const views = await viewStore().get(slug);
+  const shareUrl = `${env.siteUrl}/blog/${post.slug}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -95,6 +100,10 @@ export default async function BlogPostPage({
           <span>{post.author}</span>
           <span>·</span>
           <time dateTime={post.createdAt}>{date}</time>
+          <span>·</span>
+          <span title={`${views.toLocaleString()} views`}>
+            {formatViews(views)} {views === 1 ? "view" : "views"}
+          </span>
         </div>
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
@@ -108,12 +117,17 @@ export default async function BlogPostPage({
             ))}
           </div>
         )}
+        <ShareButtons url={shareUrl} title={post.title} />
         <div
-          className="prose-blog mt-5 text-[15px] text-white leading-relaxed"
+          className="prose-blog mt-2 text-[15px] text-white leading-relaxed"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+        <div className="mt-6">
+          <ShareButtons url={shareUrl} title={post.title} />
+        </div>
       </article>
 
+      <ViewBeacon slug={post.slug} />
       <TelegramCTA />
       <AdSlot size="300x250" />
     </>

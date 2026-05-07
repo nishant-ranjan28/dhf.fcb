@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { BlogPost } from "@/lib/blog/types";
+import { formatViews } from "@/lib/blog/views";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - +new Date(iso);
@@ -12,7 +13,7 @@ function timeAgo(iso: string): string {
   return `${d}d ago`;
 }
 
-export function BlogCard({ post }: { post: BlogPost }) {
+export function BlogCard({ post, views = 0 }: { post: BlogPost; views?: number }) {
   return (
     <Link
       href={`/blog/${post.slug}`}
@@ -37,6 +38,11 @@ export function BlogCard({ post }: { post: BlogPost }) {
             BLOG
           </span>
           <span className="text-[11px] text-ink-muted">{timeAgo(post.createdAt)}</span>
+          {views > 0 && (
+            <span className="text-[11px] text-ink-muted ml-auto" title={`${views.toLocaleString()} views`}>
+              {formatViews(views)} views
+            </span>
+          )}
         </div>
         <h3 className="text-sm font-semibold text-white leading-snug">{post.title}</h3>
         {post.excerpt && (
