@@ -44,16 +44,7 @@ export default async function BlogPostPage({
 }) {
   const { slug } = await params;
   const post = await blogStore().get(slug);
-  if (!post) {
-    // Temporary diagnostic — Vercel function logs will show why a slug
-    // resolved as null even though /api/blog/<slug> returns it.
-    console.warn("[blog/page]", {
-      slug,
-      hasUpstashUrl: Boolean(process.env.UPSTASH_REDIS_REST_URL),
-      hasUpstashToken: Boolean(process.env.UPSTASH_REDIS_REST_TOKEN),
-    });
-    notFound();
-  }
+  if (!post) notFound();
 
   const html = renderMarkdown(post.body);
 
