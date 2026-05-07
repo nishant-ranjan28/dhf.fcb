@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { blogStore } from "@/lib/blog/store";
+import { SendToTelegramButton } from "@/components/SendToTelegramButton";
+import { isTelegramConfigured } from "@/lib/telegram";
 import { DeletePostButton } from "./DeletePostButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminBlogList() {
   const posts = await blogStore().list({ limit: 100 });
+  const tgConfigured = isTelegramConfigured();
 
   return (
     <div className="px-4 mt-4">
@@ -18,6 +21,12 @@ export default async function AdminBlogList() {
           + New post
         </Link>
       </div>
+
+      {!tgConfigured && (
+        <p className="text-[11px] text-ink-muted mb-3">
+          Telegram not configured. Set <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_CHANNEL_ID</code> in Vercel env to enable the Send-to-Telegram button. New posts will not auto-announce until then.
+        </p>
+      )}
 
       {posts.length === 0 ? (
         <p className="text-sm text-ink-muted">
@@ -35,6 +44,12 @@ export default async function AdminBlogList() {
                   {new Date(p.createdAt).toLocaleString()} · {p.tags.join(", ") || "no tags"}
                 </div>
               </div>
+              {tgConfigured && (
+                <SendToTelegramButton
+                  payload={{ kind: "blog", slug: p.slug }}
+                  label="Send to TG"
+                />
+              )}
               <DeletePostButton slug={p.slug} />
             </li>
           ))}

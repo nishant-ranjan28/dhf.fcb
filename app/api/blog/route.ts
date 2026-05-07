@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { blogStore } from "@/lib/blog/store";
 import { isAdminAuthorized } from "@/lib/blog/auth";
+import {
+  formatBlogPost,
+  isTelegramConfigured,
+  sendTelegramMessage,
+} from "@/lib/telegram";
+import { env } from "@/lib/env";
 import type { BlogPostInput } from "@/lib/blog/types";
 
 export const revalidate = 60;
@@ -46,7 +52,18 @@ export async function POST(req: Request) {
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
     revalidatePath("/sitemap.xml");
-    return NextResponse.json({ post }, { status: 201 });
+
+    // Auto-announce to the Telegram channel. Best-effort — we never let a
+    // Telegram failure block post creation. Surface the result so the admin
+    // UI can show "Announced ✓" / "Announce failed: ...".
+    let telegram: { ok: boolean; error?: string } | undefined;
+    if (isTelegramConfigured()) {
+      telegram = await sendTelegramMessage({
+        text: formatBlogPost(post, env.siteUrl),
+      });
+    }
+
+    return NextResponse.json({ post, telegram }, { status: 201 });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

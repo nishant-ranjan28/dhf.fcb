@@ -59,6 +59,32 @@ The blog (`/blog` + `/admin/blog`) uses **Upstash Redis** for post storage. With
 
 To write posts, navigate to `/admin/login`, paste your `ADMIN_TOKEN`, then `/admin/blog/new`.
 
+### Optional — Telegram channel auto-push
+
+The app can announce new blog posts to a Telegram channel automatically and lets the admin manually push any blog post or news item to the channel. Free, runs on the Telegram Bot API. Without these env vars, no Telegram traffic happens at all.
+
+**One-time setup**
+
+1. Open Telegram → search **@BotFather** → `/newbot` → pick a display name and a unique `@username`. BotFather replies with a **bot token** of the form `123456:ABCdef…`. Copy it.
+2. Create your channel (or use an existing one). Open the channel → **Manage Channel → Administrators → Add** → search the bot username → grant **Post Messages** permission.
+3. Get the channel chat id:
+   - **Public channel:** the chat id is just `@yourchannelname` (with the `@`).
+   - **Private channel:** post any message to the channel, then in your browser open `https://api.telegram.org/bot<TOKEN>/getUpdates`. Find `"chat":{"id":-100…}` in the JSON and copy that negative number.
+
+**Vercel env vars**
+
+| Key | Value | Sensitive | Environments |
+|---|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | (the token from BotFather) | **ON** | Production, Preview |
+| `TELEGRAM_CHANNEL_ID` | `@yourchannelname` or `-100…` | OFF | Production, Preview |
+
+Redeploy. Now:
+
+- **Auto-announce:** every time you publish a new blog post via `/admin/blog/new`, the channel gets `📝 [title] — [URL]` automatically.
+- **Manual push:** `/admin/blog` shows a "Send to TG" button next to each existing post. `/admin/news` shows the same on each RSS news item.
+
+If sending fails (bot kicked from channel, wrong id, network blip), post creation still succeeds — the Telegram message is best-effort. The button surfaces the error inline.
+
 ### Optional — comments (Disqus)
 
 The blog post pages can host comments via Disqus when configured. Without it, no third-party script is loaded and the comments section is omitted entirely.

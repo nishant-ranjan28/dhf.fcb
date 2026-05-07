@@ -19,6 +19,9 @@ export default function AuthedAdminLayout({
             <Link href="/admin/blog/new" className="text-ink-muted hover:text-white">
               New post
             </Link>
+            <Link href="/admin/news" className="text-ink-muted hover:text-white">
+              News
+            </Link>
           </div>
           <form action="/api/admin/logout" method="post">
             <button type="submit" className="text-ink-muted hover:text-white">
