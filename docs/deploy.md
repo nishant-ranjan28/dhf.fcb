@@ -59,6 +59,22 @@ The blog (`/blog` + `/admin/blog`) uses **Upstash Redis** for post storage. With
 
 To write posts, navigate to `/admin/login`, paste your `ADMIN_TOKEN`, then `/admin/blog/new`.
 
+### Optional — comments (Disqus)
+
+The blog post pages can host comments via Disqus when configured. Without it, no third-party script is loaded and the comments section is omitted entirely.
+
+1. Sign up at https://disqus.com/admin/create
+2. Pick a **unique shortname** (e.g. `barcapulse`). It must be globally unique across Disqus.
+3. Configure the site (URL, category, moderation rules) on the Disqus dashboard.
+4. In Vercel → Settings → Environment Variables → **Add new**
+   - Key: `NEXT_PUBLIC_DISQUS_SHORTNAME`
+   - Value: your shortname (e.g. `barcapulse`)
+   - Sensitive: **OFF** (it's a public identifier, embedded in the script URL)
+   - Environments: Production + Preview
+5. Redeploy. Comments now appear at the bottom of every blog post.
+
+> **Privacy note:** Disqus loads third-party scripts that set cookies and aggregate user data. If you have a privacy policy, mention this. EU/UK visitors may need a consent banner for full GDPR compliance.
+
 ### Optional — enrichment
 | Key | Value | Notes |
 |---|---|---|

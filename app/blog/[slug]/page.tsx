@@ -5,9 +5,13 @@ import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { ShareButtons } from "@/components/ShareButtons";
 import { ViewBeacon } from "@/components/ViewBeacon";
+import { PostNavigation } from "@/components/PostNavigation";
+import { RelatedPosts } from "@/components/RelatedPosts";
+import { DisqusComments } from "@/components/DisqusComments";
 import { blogStore } from "@/lib/blog/store";
 import { renderMarkdown } from "@/lib/blog/markdown";
 import { viewStore, formatViews } from "@/lib/blog/views";
+import { adjacentPosts, relatedPosts } from "@/lib/blog/related";
 import { env } from "@/lib/env";
 
 // force-dynamic: the post page reads from Upstash on every request. We
@@ -46,12 +50,17 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await blogStore().get(slug);
+  const [post, allPosts] = await Promise.all([
+    blogStore().get(slug),
+    blogStore().list({ limit: 100 }),
+  ]);
   if (!post) notFound();
 
   const html = renderMarkdown(post.body);
   const views = await viewStore().get(slug);
   const shareUrl = `${env.siteUrl}/blog/${post.slug}`;
+  const { newer, older } = adjacentPosts(allPosts, slug);
+  const related = relatedPosts(allPosts, slug, 3);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -125,6 +134,16 @@ export default async function BlogPostPage({
         <div className="mt-6">
           <ShareButtons url={shareUrl} title={post.title} />
         </div>
+
+        <PostNavigation newer={newer} older={older} />
+
+        <RelatedPosts posts={related} />
+
+        <DisqusComments
+          identifier={post.slug}
+          url={shareUrl}
+          title={post.title}
+        />
       </article>
 
       <ViewBeacon slug={post.slug} />
