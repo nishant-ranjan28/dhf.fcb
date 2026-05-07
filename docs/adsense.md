@@ -20,7 +20,7 @@ AdSense reviewers want to see a "real, useful site". Make sure:
 - [ ] **At least 10–20 published blog posts** under `/blog`. Original writing — tactical analysis, opinion, match recaps. Don't apply with just one PSG post.
 - [ ] **Custom domain** is live and working. You have `dhf-fcb.iamnishant.in`. Set `SITE_URL` to that exact value in Vercel env so sitemap / OG metadata match.
 - [ ] **Site has been live ~2-4 weeks** with consistent organic traffic. Vercel Analytics will show this.
-- [ ] **Privacy / Terms / About pages match reality** and link to your real contact email. The pages currently say `hello@dhfbarca.com` — register that or change to your actual address.
+- [ ] **Privacy / Terms / About pages match reality** and link to your real contact email. The pages currently say `hello@iamnishant.in` — register that or change to your actual address.
 - [ ] **No copyrighted material as primary content**. RSS aggregation is OK because we link out and only show snippets. Hosting full club photos / official broadcasts = rejection.
 - [ ] **Site loads fast on mobile**. Run https://pagespeed.web.dev against your homepage; aim for green Core Web Vitals.
 

@@ -63,7 +63,7 @@ export default function AboutPage() {
           Telegram channel
         </a>
         . Editorial questions, takedown requests, or partnership inquiries:{" "}
-        <a href="mailto:hello@dhfbarca.com">hello@dhfbarca.com</a>.
+        <a href="mailto:hello@iamnishant.in">hello@iamnishant.in</a>.
       </p>
 
       <p className="text-[12px] text-ink-muted">

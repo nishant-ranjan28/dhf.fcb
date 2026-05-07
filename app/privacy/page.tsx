@@ -196,7 +196,7 @@ export default function PrivacyPage() {
         cases we have nothing to delete. To exercise rights regarding third-party
         services (AdSense, Disqus, Vercel Analytics), please contact those
         services directly. To raise any concern with us, email{" "}
-        <a href="mailto:hello@dhfbarca.com">hello@dhfbarca.com</a>.
+        <a href="mailto:hello@iamnishant.in">hello@iamnishant.in</a>.
       </p>
 
       <h2>8. Children</h2>
@@ -215,7 +215,7 @@ export default function PrivacyPage() {
       <h2>10. Contact</h2>
       <p>
         Privacy questions:{" "}
-        <a href="mailto:hello@dhfbarca.com">hello@dhfbarca.com</a>
+        <a href="mailto:hello@iamnishant.in">hello@iamnishant.in</a>
       </p>
 
       <p className="text-[12px] text-ink-muted">

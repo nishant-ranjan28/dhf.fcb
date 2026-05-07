@@ -22,7 +22,7 @@ export function Footer() {
           <Link href="/terms" className="hover:text-white">Terms</Link>
           <span aria-hidden>·</span>
           <a
-            href="mailto:hello@dhfbarca.com"
+            href="mailto:hello@iamnishant.in"
             className="hover:text-white"
           >
             Contact

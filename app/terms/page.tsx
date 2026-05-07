@@ -102,7 +102,7 @@ export default function TermsPage() {
         Third-party trademarks, logos, photographs, and headlines belong to their
         respective owners. If you are a rights-holder and believe content should
         be removed, contact{" "}
-        <a href="mailto:hello@dhfbarca.com">hello@dhfbarca.com</a> with
+        <a href="mailto:hello@iamnishant.in">hello@iamnishant.in</a> with
         specifics — we honor good-faith takedown requests.
       </p>
 
@@ -139,7 +139,7 @@ export default function TermsPage() {
       <h2>12. Contact</h2>
       <p>
         Questions:{" "}
-        <a href="mailto:hello@dhfbarca.com">hello@dhfbarca.com</a>
+        <a href="mailto:hello@iamnishant.in">hello@iamnishant.in</a>
       </p>
 
       <p className="text-[12px] text-ink-muted">
