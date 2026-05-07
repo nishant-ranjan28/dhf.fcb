@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
+import { Footer } from "@/components/Footer";
+import { CookieConsent } from "@/components/CookieConsent";
 import { env } from "@/lib/env";
-
-const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.siteUrl),
@@ -42,18 +41,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         )}
         <Header />
-        <main className="mx-auto max-w-screen pb-20">{children}</main>
+        <main className="mx-auto max-w-screen pb-20">
+          {children}
+          <Footer />
+        </main>
         <BottomNav />
         <Analytics />
-        {ADSENSE_CLIENT && (
-          <Script
-            id="adsense"
-            async
-            strategy="afterInteractive"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-            crossOrigin="anonymous"
-          />
-        )}
+        {/* CookieConsent gates the AdSense loader on user consent. The script
+            is only injected after Accept; before that, no third-party cookies
+            are set, satisfying GDPR/UK PECR. */}
+        <CookieConsent />
       </body>
     </html>
   );
