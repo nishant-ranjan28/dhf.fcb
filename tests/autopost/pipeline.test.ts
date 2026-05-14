@@ -83,6 +83,27 @@ describe("runPipeline", () => {
     expect(await autopostState().publishedToday()).toBe(1);
   });
 
+  it("populates coverImage from the source article's og:image when available", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("bbc.co.uk")) {
+        return new Response(
+          `<meta property="og:image" content="https://cdn.bbc.co.uk/hero.jpg">`,
+          { status: 200, headers: { "content-type": "text/html" } },
+        );
+      }
+      return new Response("not mocked", { status: 599 });
+    }));
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem({ link: "https://bbc.co.uk/article" })],
+      generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped" }),
+      siteUrl: "https://x.com",
+    });
+    expect(r.status).toBe("published");
+    const saved = await blogStore().get((r as { status: "published"; slug: string }).slug);
+    expect(saved?.coverImage).toBe("https://cdn.bbc.co.uk/hero.jpg");
+  });
+
   it("skips when word count gate fails", async () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],

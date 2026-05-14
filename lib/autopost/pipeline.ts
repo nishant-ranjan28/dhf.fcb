@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { blogStore } from "@/lib/blog/store";
 import { autopostState } from "./state";
 import { selectNewsItem, extractEntities } from "./select";
+import { fetchOgImage } from "./og";
 import {
   explainWordCount,
   explainDuplicateTopic,
@@ -98,11 +99,17 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   const attribution = selected.source.link
     ? `\n\n*Source: [${selected.source.title}](${selected.source.link})*`
     : "";
+  // Best-effort OG image lookup. Failures (timeout, no meta) mean no cover,
+  // not a publish failure.
+  const coverImage = selected.source.link
+    ? (await fetchOgImage(selected.source.link)) ?? undefined
+    : undefined;
   const post = await blogStore().create({
     title: draft.title,
     body: draft.body + attribution,
     excerpt: draft.excerpt,
     tags: draft.tags,
+    coverImage,
     author: "BarcaPulse Auto",
   });
   await state.recordPublish({ provider: draft.provider });
