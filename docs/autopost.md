@@ -14,7 +14,7 @@ pushes to Telegram and the Facebook Page.
 | `FACEBOOK_PAGE_ID` | FB Page → About → Page ID | Numeric |
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | Meta dev portal, long-lived | ~60 day lifetime — see Renewal below |
 | `CRON_TOKEN` | `openssl rand -hex 32` | Random secret; also set as GH repo secret |
-| `AUTOPOST_ENABLED` | `"true"` to start, `"false"` to pause | Kill switch |
+| `AUTOPOST_ENABLED` | `"true"` to start, anything else to pause | Kill switch. Default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true` to enable the feature. |
 | `SITE_URL` | `https://dhf-fcb.iamnishant.in` | Already set; used for post links |
 
 ## GitHub Actions setup
@@ -29,6 +29,10 @@ pushes to Telegram and the Facebook Page.
 Pause everything without a deploy: set `AUTOPOST_ENABLED=false` in Vercel and
 redeploy (env-only redeploy is fast). The route returns
 `{ status: "skipped", reason: "disabled" }`.
+
+The default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true`
+to enable the feature. Any value other than the literal string `"true"` keeps
+the feature paused.
 
 To resume: set `AUTOPOST_ENABLED=true` and redeploy.
 
@@ -62,6 +66,12 @@ Calendar a reminder for ~50 days after each rotation.
   errors into a generic `all_providers_failed` skip reason; consult the
   per-run `console.warn` lines in Vercel logs (`[autopost] gemini http 429`
   etc.) to see which provider failed and why.
+
+- **`maxDuration` is 90s on the cron route**, sized for the dual-provider
+  fallback worst case (two providers at 30s each + pipeline overhead). On
+  Vercel Hobby plans this is silently clamped to 60s — if you're on Hobby and
+  start seeing timeouts during Groq fallback, upgrade to Pro or lower
+  per-provider timeouts in `lib/autopost/generate.ts`.
 
 - **Attribution uses the article headline as link text** (`*Source:
   <headline>*`). We don't carry the publisher name on `NewsPost`. If you'd

@@ -1,4 +1,5 @@
 import type { NewsPost } from "@/lib/types";
+import { env } from "@/lib/env";
 import { blogStore } from "@/lib/blog/store";
 import { autopostState } from "./state";
 import { selectNewsItem, extractEntities } from "./select";
@@ -28,7 +29,7 @@ export interface PipelineDeps {
 }
 
 export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
-  if (process.env.AUTOPOST_ENABLED === "false") {
+  if (!env.autopostEnabled) {
     return { status: "skipped", reason: "disabled" };
   }
 
@@ -40,8 +41,10 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   }
 
   // Manual cooldown: don't auto-post if a human posted within the last 55 min.
+  // Prior autoposts (author === "BarcaPulse Auto") are excluded so consecutive
+  // autoposts don't trip each other's cooldown when cron drifts.
   const recent = await blogStore().list({ limit: 1 });
-  if (recent.length > 0) {
+  if (recent.length > 0 && recent[0].author !== "BarcaPulse Auto") {
     const age = Date.now() - +new Date(recent[0].createdAt);
     if (age < MANUAL_COOLDOWN_MS) {
       await state.recordSkip("manual_cooldown");
@@ -85,7 +88,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     body: draft.body + attribution,
     excerpt: draft.excerpt,
     tags: draft.tags,
-    author: "BarcaPulse",
+    author: "BarcaPulse Auto",
   });
   await state.recordPublish({ provider: draft.provider });
   await state.recordEntities(selected.entities);

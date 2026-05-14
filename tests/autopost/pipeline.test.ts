@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { runPipeline } from "@/lib/autopost/pipeline";
 import { _resetBlogStore, blogStore } from "@/lib/blog/store";
 import { _resetAutopostState, autopostState } from "@/lib/autopost/state";
+import { resetEnvCache } from "@/lib/env";
 import type { NewsPost } from "@/lib/types";
 
 function newsItem(over: Partial<NewsPost> = {}): NewsPost {
@@ -34,14 +35,20 @@ beforeEach(async () => {
   delete process.env.KV_REST_API_URL;
   delete process.env.KV_REST_API_TOKEN;
   delete process.env.AUTOPOST_ENABLED;
+  resetEnvCache();
+  // Default to enabled for the bulk of tests; the "disabled" test below
+  // leaves AUTOPOST_ENABLED unset (the production default — opt-in).
+  process.env.AUTOPOST_ENABLED = "true";
+  resetEnvCache();
   await blogStore()._reset?.();
   await autopostState()._reset?.();
   vi.restoreAllMocks();
 });
 
 describe("runPipeline", () => {
-  it("returns disabled when AUTOPOST_ENABLED=false", async () => {
-    process.env.AUTOPOST_ENABLED = "false";
+  it("returns disabled when AUTOPOST_ENABLED is not 'true'", async () => {
+    delete process.env.AUTOPOST_ENABLED;
+    resetEnvCache();
     const r = await runPipeline({
       fetchNews: async () => [],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
@@ -109,6 +116,17 @@ describe("runPipeline", () => {
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "manual_cooldown" });
+  });
+
+  it("does NOT cool down when newest post is from autopost itself", async () => {
+    await blogStore().create({ title: "Prior autopost", body: "x", author: "BarcaPulse Auto" });
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem()],
+      generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped" }),
+      siteUrl: "https://x.com",
+    });
+    expect(r.status).toBe("published");
   });
 
   it("propagates provider failure as all_providers_failed", async () => {

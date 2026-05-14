@@ -8,7 +8,7 @@ import { generateDraft } from "@/lib/autopost/generate";
 import { announce } from "@/lib/autopost/announce";
 import { autopostState } from "@/lib/autopost/state";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 export async function POST(req: Request) {
   if (!isAuthed(req)) {
