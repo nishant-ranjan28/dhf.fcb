@@ -11,6 +11,8 @@ export interface AppEnv {
   scoresTtlSeconds: number;
   listTtlSeconds: number;
   newsTtlSeconds: number;
+  cronToken?: string;
+  autopostEnabled: boolean;
 }
 
 let cached: AppEnv | null = null;
@@ -55,6 +57,8 @@ function build(): AppEnv {
     scoresTtlSeconds: num(process.env.SCORES_TTL_SECONDS, 30),
     listTtlSeconds: num(process.env.LIST_TTL_SECONDS, 60),
     newsTtlSeconds: num(process.env.NEWS_TTL_SECONDS, 600),
+    cronToken: process.env.CRON_TOKEN?.trim() || undefined,
+    autopostEnabled: process.env.AUTOPOST_ENABLED?.trim() === "true",
   };
 }
 
