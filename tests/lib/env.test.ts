@@ -71,3 +71,23 @@ describe("env", () => {
     expect(env.newsTtlSeconds).toBe(600);
   });
 });
+
+describe("autopost env", () => {
+  it("exposes cronToken and autopostEnabled", () => {
+    process.env.CRON_TOKEN = "secret";
+    process.env.AUTOPOST_ENABLED = "true";
+    resetEnvCache();
+    expect(env.cronToken).toBe("secret");
+    expect(env.autopostEnabled).toBe(true);
+  });
+  it("autopostEnabled defaults to false", () => {
+    delete process.env.AUTOPOST_ENABLED;
+    resetEnvCache();
+    expect(env.autopostEnabled).toBe(false);
+  });
+  it("autopostEnabled=true only when literal 'true'", () => {
+    process.env.AUTOPOST_ENABLED = "yes";
+    resetEnvCache();
+    expect(env.autopostEnabled).toBe(false);
+  });
+});

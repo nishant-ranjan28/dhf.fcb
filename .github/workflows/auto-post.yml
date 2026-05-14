@@ -1,0 +1,38 @@
+name: Hourly auto-post
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/auto-post
+        env:
+          SITE_URL: https://dhf-fcb.iamnishant.in
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_TOKEN:-}" ]; then
+            echo "CRON_TOKEN secret is missing"
+            exit 1
+          fi
+          response=$(mktemp)
+          http=$(curl --silent --show-error --max-time 90 \
+            --output "$response" --write-out "%{http_code}" \
+            -X POST "$SITE_URL/api/cron/auto-post" \
+            -H "Authorization: Bearer $CRON_TOKEN")
+          echo "HTTP $http"
+          cat "$response"
+          echo
+          # Any 2xx is success — pipeline returns 200 for both published
+          # and skipped (skipped is expected on slow news hours).
+          if [[ "$http" =~ ^2 ]]; then
+            exit 0
+          fi
+          exit 1

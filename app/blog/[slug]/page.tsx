@@ -28,6 +28,12 @@ export async function generateMetadata({
   const { slug } = await params;
   const post = await blogStore().get(slug);
   if (!post) return { title: "Post not found" };
+  // AdSense-safety: posts younger than 10 minutes return noindex,follow so
+  // search engines don't pick up a half-baked autopost while we're still in
+  // the editorial window. Posts >= 10 min old fall through to the default
+  // (indexable) behaviour — no robots field emitted.
+  const ageMs = Date.now() - new Date(post.createdAt).getTime();
+  const isFresh = ageMs < 10 * 60 * 1000;
   return {
     title: post.title,
     description: post.excerpt,
@@ -41,6 +47,7 @@ export async function generateMetadata({
       tags: post.tags,
       ...(post.coverImage && { images: [{ url: post.coverImage }] }),
     },
+    ...(isFresh && { robots: { index: false, follow: true } }),
   };
 }
 
