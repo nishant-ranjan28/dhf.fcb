@@ -22,9 +22,9 @@ export interface DuplicateTopicInput {
 }
 
 export function duplicateTopicGate(input: DuplicateTopicInput): boolean {
-  const overlap = input.newEntities.some((e) =>
-    input.recentEntities.includes(e.toLowerCase()),
-  );
+  // Normalize both sides so callers can pass entities at any casing.
+  const recentLower = new Set(input.recentEntities.map((e) => e.toLowerCase()));
+  const overlap = input.newEntities.some((e) => recentLower.has(e.toLowerCase()));
   if (overlap) return false;
   const newTokens = tokenize(input.newTitle);
   for (const t of input.recentTitles) {

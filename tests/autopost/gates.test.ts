@@ -49,6 +49,15 @@ describe("duplicateTopicGate", () => {
     });
     expect(ok).toBe(false);
   });
+  it("normalizes case on both sides of the entity overlap check", () => {
+    const ok = duplicateTopicGate({
+      newTitle: "Totally different headline about football tactics",
+      recentTitles: [],
+      newEntities: ["Lewandowski"],
+      recentEntities: ["LEWANDOWSKI"],
+    });
+    expect(ok).toBe(false);
+  });
 });
 
 describe("bannedPhrasesGate", () => {
