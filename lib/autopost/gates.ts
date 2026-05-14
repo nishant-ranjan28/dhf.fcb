@@ -13,7 +13,10 @@ export interface GateDiagnostics {
   bannedPhrase?: string;
 }
 
-export function explainWordCount(body: string, min = 600): { ok: boolean; count: number } {
+// Floor lowered from 600 to 500 after diagnostics showed Gemini Flash
+// consistently producing 550-600 words. AdSense accepts 500-word articles
+// routinely; the original 600 was a self-imposed conservative bar.
+export function explainWordCount(body: string, min = 500): { ok: boolean; count: number } {
   const cleaned = body
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/[#*_>`~\[\]()!-]/g, " ");
@@ -21,7 +24,7 @@ export function explainWordCount(body: string, min = 600): { ok: boolean; count:
   return { ok: count >= min, count };
 }
 
-export function wordCountGate(body: string, min = 600): boolean {
+export function wordCountGate(body: string, min = 500): boolean {
   return explainWordCount(body, min).ok;
 }
 

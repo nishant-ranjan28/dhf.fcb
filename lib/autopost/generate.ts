@@ -41,7 +41,7 @@ Source summary: "${item.source.content.slice(0, 600)}".
 Source URL: ${item.source.link ?? "(no link)"}
 
 Write an ORIGINAL blog post about this story. Rules:
-- AT LEAST 800 words. This is a strict minimum — short posts will be rejected and the model will be asked to retry. Aim for 900-1000 words across 5-7 paragraphs.
+- AT LEAST 700 words. This is a strict minimum — short posts will be rejected. Aim for 800-1000 words across 5-7 paragraphs.
 - Markdown body.
 - Add ANALYSIS and CONTEXT — what this means for Barcelona / the player / the season. Do NOT just summarize the source.
 - Confident, opinionated voice. No "as an AI" disclaimers.
@@ -50,7 +50,7 @@ Write an ORIGINAL blog post about this story. Rules:
 Return ONLY a JSON object (no markdown fences, no prose around it) with this shape:
 {
   "title": "string — your own headline, not the source's",
-  "body": "string — markdown body, 700-1000 words",
+  "body": "string — markdown body, 700-1000 words (minimum 700)",
   "excerpt": "string — 1-line summary, under 200 chars",
   "tags": ["array", "of", "5", "lowercase", "tags"]
 }`;
