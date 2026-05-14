@@ -9,7 +9,7 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export type GenerateResult =
   | { ok: true; draft: DraftPost }
-  | { ok: false; reason: "quota" | "all_providers_failed" };
+  | { ok: false; reason: "all_providers_failed" };
 
 export async function generateDraft(item: SelectedNewsItem): Promise<GenerateResult> {
   const prompt = buildPrompt(item);
@@ -27,10 +27,7 @@ export async function generateDraft(item: SelectedNewsItem): Promise<GenerateRes
     if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
   }
 
-  // Neither succeeded. If we never tried Groq because no key, AND Gemini
-  // failed specifically on quota, surface that — callers may want to log it
-  // separately from a true outage.
-  return { ok: false, reason: geminiKey && !groqKey ? "quota" : "all_providers_failed" };
+  return { ok: false, reason: "all_providers_failed" };
 }
 
 function buildPrompt(item: SelectedNewsItem): string {
@@ -75,15 +72,26 @@ async function tryGemini(prompt: string, key: string): Promise<{ ok: true; draft
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) return { ok: false };
+    if (!res.ok) {
+      console.warn("[autopost] gemini http", res.status);
+      return { ok: false };
+    }
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { ok: false };
+    if (!text) {
+      console.warn("[autopost] gemini parse failed");
+      return { ok: false };
+    }
     const draft = parseJsonDraft(text);
-    return draft ? { ok: true, draft } : { ok: false };
-  } catch {
+    if (!draft) {
+      console.warn("[autopost] gemini parse failed");
+      return { ok: false };
+    }
+    return { ok: true, draft };
+  } catch (err) {
+    console.warn("[autopost] gemini exception:", err instanceof Error ? err.message : String(err));
     return { ok: false };
   }
 }
@@ -105,15 +113,26 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) return { ok: false };
+    if (!res.ok) {
+      console.warn("[autopost] groq http", res.status);
+      return { ok: false };
+    }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
     };
     const text = data.choices?.[0]?.message?.content;
-    if (!text) return { ok: false };
+    if (!text) {
+      console.warn("[autopost] groq parse failed");
+      return { ok: false };
+    }
     const draft = parseJsonDraft(text);
-    return draft ? { ok: true, draft } : { ok: false };
-  } catch {
+    if (!draft) {
+      console.warn("[autopost] groq parse failed");
+      return { ok: false };
+    }
+    return { ok: true, draft };
+  } catch (err) {
+    console.warn("[autopost] groq exception:", err instanceof Error ? err.message : String(err));
     return { ok: false };
   }
 }
