@@ -21,6 +21,8 @@ export interface DayStats {
 export interface AutopostState {
   publishedToday(): Promise<number>;
   todayStats(): Promise<DayStats>;
+  /** Walks back `days` from today inclusive. Days older than the 30d stats
+   *  TTL (Redis) appear as empty `DayStats`, so callers should request <= 30. */
   recentStats(days: number): Promise<DayStats[]>;
   dayCapReached(cap: number): Promise<boolean>;
   recordPublish(opts: { provider: "gemini" | "groq" }): Promise<void>;
@@ -100,9 +102,13 @@ function makeRedisState(client: Redis): AutopostState {
       await writeDay(s);
     },
     async recordEntities(entities, at = Date.now()) {
-      if (entities.length === 0) return;
-      const items = entities.map((e) => ({ score: at, member: e.toLowerCase() }));
-      await client.zadd(TOPICS_KEY, ...items);
+      // Filter empties + destructure so TS can prove the variadic overload.
+      const items = entities
+        .filter((e) => e.trim().length > 0)
+        .map((e) => ({ score: at, member: e.toLowerCase() }));
+      if (items.length === 0) return;
+      const [first, ...rest] = items;
+      await client.zadd(TOPICS_KEY, first, ...rest);
     },
     async recentEntities(days) {
       const min = Date.now() - days * 24 * 3600 * 1000;
@@ -162,7 +168,10 @@ function makeMemoryState(): AutopostState {
       dayOf(ymd()).generated += 1;
     },
     async recordEntities(es, at = Date.now()) {
-      for (const e of es) entities.set(e.toLowerCase(), at);
+      for (const e of es) {
+        const lower = e.trim().toLowerCase();
+        if (lower) entities.set(lower, at);
+      }
     },
     async recentEntities(days) {
       const min = Date.now() - days * 24 * 3600 * 1000;
