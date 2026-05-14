@@ -39,12 +39,10 @@ describe("postToFacebookPage", () => {
     expect(r.ok).toBe(true);
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toContain("/555/feed");
-    const body = JSON.parse(String(init?.body));
-    expect(body).toMatchObject({
-      message: "Hello",
-      link: "https://barcapulse.com/blog/x",
-      access_token: "tok",
-    });
+    const params = new URLSearchParams(String(init?.body));
+    expect(params.get("message")).toBe("Hello");
+    expect(params.get("link")).toBe("https://barcapulse.com/blog/x");
+    expect(params.get("access_token")).toBe("tok");
   });
 
   it("returns ok=false on non-2xx", async () => {

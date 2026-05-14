@@ -20,14 +20,14 @@ export async function postToFacebookPage(opts: {
   const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
   if (!pageId || !token) return { ok: false, error: "Facebook not configured" };
   try {
+    const body = new URLSearchParams({
+      message: opts.message,
+      link: opts.link,
+      access_token: token,
+    });
     const res = await fetch(`${GRAPH}/${pageId}/feed`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        message: opts.message,
-        link: opts.link,
-        access_token: token,
-      }),
+      body,
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {

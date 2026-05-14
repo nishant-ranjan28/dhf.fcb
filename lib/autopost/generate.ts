@@ -9,15 +9,17 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export type GenerateResult =
   | { ok: true; draft: DraftPost }
-  | { ok: false; reason: "all_providers_failed" };
+  | { ok: false; reason: "quota" | "all_providers_failed" };
 
 export async function generateDraft(item: SelectedNewsItem): Promise<GenerateResult> {
   const prompt = buildPrompt(item);
+  let sawQuota = false;
 
   const geminiKey = process.env.GEMINI_API_KEY?.trim();
   if (geminiKey) {
     const r = await tryGemini(prompt, geminiKey);
     if (r.ok) return { ok: true, draft: { ...r.draft, provider: "gemini" } };
+    if (r.quota) sawQuota = true;
     // Fall through to Groq on quota or transient.
   }
 
@@ -25,9 +27,10 @@ export async function generateDraft(item: SelectedNewsItem): Promise<GenerateRes
   if (groqKey) {
     const r = await tryGroq(prompt, groqKey);
     if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
+    if (r.quota) sawQuota = true;
   }
 
-  return { ok: false, reason: "all_providers_failed" };
+  return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
 }
 
 function buildPrompt(item: SelectedNewsItem): string {
@@ -41,7 +44,6 @@ Write an ORIGINAL blog post about this story. Rules:
 - 700-1000 words.
 - Markdown body.
 - Add ANALYSIS and CONTEXT — what this means for Barcelona / the player / the season. Do NOT just summarize the source.
-- End the post with a single line: *Original reporting by [source]*.
 - Confident, opinionated voice. No "as an AI" disclaimers.
 - Use the entities ${JSON.stringify(item.entities)} naturally in the body.
 
@@ -61,7 +63,7 @@ interface ParsedDraft {
   tags: string[];
 }
 
-async function tryGemini(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false }> {
+async function tryGemini(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true }> {
   try {
     const res = await fetch(`${GEMINI_URL(GEMINI_MODEL)}?key=${encodeURIComponent(key)}`, {
       method: "POST",
@@ -74,7 +76,7 @@ async function tryGemini(prompt: string, key: string): Promise<{ ok: true; draft
     });
     if (!res.ok) {
       console.warn("[autopost] gemini http", res.status);
-      return { ok: false };
+      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
     }
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -96,7 +98,7 @@ async function tryGemini(prompt: string, key: string): Promise<{ ok: true; draft
   }
 }
 
-async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false }> {
+async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true }> {
   try {
     const res = await fetch(GROQ_URL, {
       method: "POST",
@@ -115,7 +117,7 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
     });
     if (!res.ok) {
       console.warn("[autopost] groq http", res.status);
-      return { ok: false };
+      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
     }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];

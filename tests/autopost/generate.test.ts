@@ -67,10 +67,10 @@ describe("generateDraft — Gemini primary", () => {
     }
   });
 
-  it("returns all_providers_failed when Gemini fails and no Groq key", async () => {
+  it("returns reason:'quota' on Gemini 429 with no Groq key", async () => {
     vi.stubGlobal("fetch", mockGemini({ error: "rate_limit" }, 429));
     const r = await generateDraft(ITEM);
-    expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
+    expect(r).toEqual({ ok: false, reason: "quota" });
   });
 });
 

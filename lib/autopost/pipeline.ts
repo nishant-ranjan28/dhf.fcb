@@ -43,9 +43,9 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   // Manual cooldown: don't auto-post if a human posted within the last 55 min.
   // Prior autoposts (author === "BarcaPulse Auto") are excluded so consecutive
   // autoposts don't trip each other's cooldown when cron drifts.
-  const recent = await blogStore().list({ limit: 1 });
-  if (recent.length > 0 && recent[0].author !== "BarcaPulse Auto") {
-    const age = Date.now() - +new Date(recent[0].createdAt);
+  const recentNewest = await blogStore().list({ limit: 1 });
+  if (recentNewest.length > 0 && recentNewest[0].author !== "BarcaPulse Auto") {
+    const age = Date.now() - +new Date(recentNewest[0].createdAt);
     if (age < MANUAL_COOLDOWN_MS) {
       await state.recordSkip("manual_cooldown");
       return { status: "skipped", reason: "manual_cooldown" };
@@ -71,7 +71,13 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   const draft: DraftPost = gen.draft;
 
   // 3. Quality gates
-  const gateResult = runGates({ draft, item: selected, recent });
+  // Fetch a wider window for the duplicate-topic Jaccard check than the
+  // single-post cooldown query. Filter to the last 7 days.
+  const sevenDaysAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  const recentForDupe = (await blogStore().list({ limit: 50 })).filter(
+    (p) => +new Date(p.createdAt) >= sevenDaysAgo,
+  );
+  const gateResult = runGates({ draft, item: selected, recent: recentForDupe });
   if (gateResult !== "ok") {
     await state.recordSkip(gateResult);
     return { status: "skipped", reason: gateResult };
