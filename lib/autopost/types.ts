@@ -1,5 +1,6 @@
 import type { NewsPost } from "@/lib/types";
 import type { BlogPostInput } from "@/lib/blog/types";
+import type { GateDiagnostics } from "./gates";
 
 /** A news item the pipeline has chosen to write about, plus the entities
  *  we extracted from it for duplicate-detection. */
@@ -36,7 +37,7 @@ export type SkipReason =
 
 export type PipelineResult =
   | { status: "published"; slug: string; provider: "gemini" | "groq"; announces: AnnounceResults }
-  | { status: "skipped"; reason: SkipReason }
+  | { status: "skipped"; reason: SkipReason; diagnostics?: GateDiagnostics }
   | { status: "error"; error: string };
 
 export interface AnnounceResults {

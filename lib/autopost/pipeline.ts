@@ -4,17 +4,26 @@ import { blogStore } from "@/lib/blog/store";
 import { autopostState } from "./state";
 import { selectNewsItem, extractEntities } from "./select";
 import {
-  wordCountGate,
-  duplicateTopicGate,
-  bannedPhrasesGate,
-  entityCoverageGate,
+  explainWordCount,
+  explainDuplicateTopic,
+  explainBannedPhrases,
+  explainEntityCoverage,
 } from "./gates";
+import type { GateDiagnostics } from "./gates";
 import type {
   DraftPost,
   PipelineResult,
   AnnounceResults,
   SelectedNewsItem,
 } from "./types";
+
+type GateSkipReason =
+  | "gate_word_count"
+  | "gate_duplicate_topic"
+  | "gate_banned_phrases"
+  | "gate_entity_coverage";
+
+type GateResult = { ok: true } | { ok: false; reason: GateSkipReason; diag: GateDiagnostics };
 import type { GenerateResult } from "./generate";
 import type { BlogPost } from "@/lib/blog/types";
 
@@ -78,9 +87,9 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     (p) => +new Date(p.createdAt) >= sevenDaysAgo,
   );
   const gateResult = runGates({ draft, item: selected, recent: recentForDupe });
-  if (gateResult !== "ok") {
-    await state.recordSkip(gateResult);
-    return { status: "skipped", reason: gateResult };
+  if (!gateResult.ok) {
+    await state.recordSkip(gateResult.reason);
+    return { status: "skipped", reason: gateResult.reason, diagnostics: gateResult.diag };
   }
 
   // 4. Persist
@@ -109,22 +118,36 @@ function runGates(args: {
   draft: DraftPost;
   item: SelectedNewsItem;
   recent: BlogPost[];
-}): "ok" | "gate_word_count" | "gate_duplicate_topic" | "gate_banned_phrases" | "gate_entity_coverage" {
-  if (!wordCountGate(args.draft.body)) return "gate_word_count";
-  if (!bannedPhrasesGate(args.draft.body)) return "gate_banned_phrases";
-  if (!entityCoverageGate({ entities: args.item.entities, body: args.draft.body }))
-    return "gate_entity_coverage";
+}): GateResult {
+  const wc = explainWordCount(args.draft.body);
+  if (!wc.ok) {
+    return { ok: false, reason: "gate_word_count", diag: { wordCount: wc.count } };
+  }
+  const banned = explainBannedPhrases(args.draft.body);
+  if (banned !== null) {
+    return { ok: false, reason: "gate_banned_phrases", diag: { bannedPhrase: banned } };
+  }
+  const cov = explainEntityCoverage({ entities: args.item.entities, body: args.draft.body });
+  if (!cov.ok) {
+    return { ok: false, reason: "gate_entity_coverage", diag: { missingEntities: cov.missing } };
+  }
   const titleEntities = extractEntities(args.draft.title).map((s) => s.toLowerCase());
   // recentEntities=[] is intentional: selectNewsItem already rejects items
   // whose entities overlap with state.recentEntities(7d), so by this point the
   // entity-overlap check would be a no-op. We're only using the Jaccard
   // title-similarity check from this gate.
-  const dupe = duplicateTopicGate({
+  const dupe = explainDuplicateTopic({
     newTitle: args.draft.title,
     recentTitles: args.recent.map((p) => p.title),
     newEntities: titleEntities,
     recentEntities: [],
   });
-  if (!dupe) return "gate_duplicate_topic";
-  return "ok";
+  if (!dupe.ok) {
+    return {
+      ok: false,
+      reason: "gate_duplicate_topic",
+      diag: dupe.duplicateOf ? { duplicateOf: dupe.duplicateOf } : {},
+    };
+  }
+  return { ok: true };
 }

@@ -41,11 +41,11 @@ Source summary: "${item.source.content.slice(0, 600)}".
 Source URL: ${item.source.link ?? "(no link)"}
 
 Write an ORIGINAL blog post about this story. Rules:
-- 700-1000 words.
+- AT LEAST 800 words. This is a strict minimum — short posts will be rejected and the model will be asked to retry. Aim for 900-1000 words across 5-7 paragraphs.
 - Markdown body.
 - Add ANALYSIS and CONTEXT — what this means for Barcelona / the player / the season. Do NOT just summarize the source.
 - Confident, opinionated voice. No "as an AI" disclaimers.
-- Use the entities ${JSON.stringify(item.entities)} naturally in the body.
+- Use the entities ${JSON.stringify(item.entities)} naturally in the body — they must each appear verbatim at least once (e.g. if "Barcelona" is in the list, use the word "Barcelona", not just "Barça" or "the club").
 
 Return ONLY a JSON object (no markdown fences, no prose around it) with this shape:
 {
