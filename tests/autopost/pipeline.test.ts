@@ -91,7 +91,11 @@ describe("runPipeline", () => {
       announceFn: async () => ({ telegram: "skipped", facebook: "skipped" }),
       siteUrl: "https://x.com",
     });
-    expect(r).toEqual({ status: "skipped", reason: "gate_word_count" });
+    expect(r.status).toBe("skipped");
+    if (r.status === "skipped") {
+      expect(r.reason).toBe("gate_word_count");
+      expect(typeof r.diagnostics?.wordCount).toBe("number");
+    }
     expect(await autopostState().publishedToday()).toBe(0);
   });
 

@@ -4,6 +4,8 @@ import {
   duplicateTopicGate,
   bannedPhrasesGate,
   entityCoverageGate,
+  explainWordCount,
+  explainEntityCoverage,
 } from "@/lib/autopost/gates";
 
 describe("wordCountGate", () => {
@@ -76,6 +78,29 @@ describe("bannedPhrasesGate", () => {
     const para = "Barcelona dominated possession throughout the second half. Their press disrupted the visiting midfield. The crowd lifted the team across the closing minutes of the game.";
     const body = `${para}\n\n${para}`;
     expect(bannedPhrasesGate(body)).toBe(false);
+  });
+});
+
+describe("explainWordCount", () => {
+  it("returns ok + count for a passing body", () => {
+    const body = "word ".repeat(600).trim();
+    expect(explainWordCount(body)).toEqual({ ok: true, count: 600 });
+  });
+  it("returns ok=false with the actual count on failure", () => {
+    expect(explainWordCount("word ".repeat(10).trim())).toEqual({ ok: false, count: 10 });
+  });
+});
+
+describe("explainEntityCoverage", () => {
+  it("returns ok with empty missing list when all entities present", () => {
+    expect(
+      explainEntityCoverage({ entities: ["yamal"], body: "Yamal scored." }),
+    ).toEqual({ ok: true, missing: [] });
+  });
+  it("returns the missing entities on failure", () => {
+    expect(
+      explainEntityCoverage({ entities: ["yamal", "pedri"], body: "Yamal scored." }),
+    ).toEqual({ ok: false, missing: ["pedri"] });
   });
 });
 

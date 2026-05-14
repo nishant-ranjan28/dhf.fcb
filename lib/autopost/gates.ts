@@ -6,12 +6,23 @@ const BANNED_PHRASES: RegExp[] = [
   /\bi'm sorry,? but\b/i,
 ];
 
-export function wordCountGate(body: string, min = 600): boolean {
+export interface GateDiagnostics {
+  wordCount?: number;
+  missingEntities?: string[];
+  duplicateOf?: string;
+  bannedPhrase?: string;
+}
+
+export function explainWordCount(body: string, min = 600): { ok: boolean; count: number } {
   const cleaned = body
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/[#*_>`~\[\]()!-]/g, " ");
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  return words.length >= min;
+  const count = cleaned.split(/\s+/).filter(Boolean).length;
+  return { ok: count >= min, count };
+}
+
+export function wordCountGate(body: string, min = 600): boolean {
+  return explainWordCount(body, min).ok;
 }
 
 export interface DuplicateTopicInput {
@@ -22,15 +33,24 @@ export interface DuplicateTopicInput {
 }
 
 export function duplicateTopicGate(input: DuplicateTopicInput): boolean {
-  // Normalize both sides so callers can pass entities at any casing.
+  return explainDuplicateTopic(input).ok;
+}
+
+/** Returns ok=true if the topic is novel. On failure, `duplicateOf` is either
+ *  the overlapping entity (lower-cased) or the recent title that tripped the
+ *  Jaccard similarity check. */
+export function explainDuplicateTopic(input: DuplicateTopicInput): {
+  ok: boolean;
+  duplicateOf?: string;
+} {
   const recentLower = new Set(input.recentEntities.map((e) => e.toLowerCase()));
-  const overlap = input.newEntities.some((e) => recentLower.has(e.toLowerCase()));
-  if (overlap) return false;
+  const overlapping = input.newEntities.find((e) => recentLower.has(e.toLowerCase()));
+  if (overlapping) return { ok: false, duplicateOf: overlapping.toLowerCase() };
   const newTokens = tokenize(input.newTitle);
   for (const t of input.recentTitles) {
-    if (jaccard(newTokens, tokenize(t)) >= 0.5) return false;
+    if (jaccard(newTokens, tokenize(t)) >= 0.5) return { ok: false, duplicateOf: t };
   }
-  return true;
+  return { ok: true };
 }
 
 export function bannedPhrasesGate(body: string): boolean {
@@ -38,9 +58,28 @@ export function bannedPhrasesGate(body: string): boolean {
   return !hasRepeatedParagraph(body);
 }
 
-export function entityCoverageGate(input: { entities: string[]; body: string }): boolean {
+/** Returns the first matched banned phrase (the raw match text), or
+ *  "repeated_paragraph" if a paragraph repeats verbatim, or null if clean. */
+export function explainBannedPhrases(body: string): string | null {
+  for (const re of BANNED_PHRASES) {
+    const m = re.exec(body);
+    if (m) return m[0];
+  }
+  if (hasRepeatedParagraph(body)) return "repeated_paragraph";
+  return null;
+}
+
+export function explainEntityCoverage(input: { entities: string[]; body: string }): {
+  ok: boolean;
+  missing: string[];
+} {
   const lowerBody = input.body.toLowerCase();
-  return input.entities.every((e) => lowerBody.includes(e.toLowerCase()));
+  const missing = input.entities.filter((e) => !lowerBody.includes(e.toLowerCase()));
+  return { ok: missing.length === 0, missing };
+}
+
+export function entityCoverageGate(input: { entities: string[]; body: string }): boolean {
+  return explainEntityCoverage(input).ok;
 }
 
 function tokenize(s: string): Set<string> {
