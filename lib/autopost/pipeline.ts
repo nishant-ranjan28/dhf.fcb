@@ -75,8 +75,10 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   }
 
   // 4. Persist
+  // Attribution. We don't carry the publisher name on NewsPost, so we use the
+  // article headline as the link text — reads naturally as "Source: <headline>".
   const attribution = selected.source.link
-    ? `\n\n*Original reporting by [${selected.source.title}](${selected.source.link})*`
+    ? `\n\n*Source: [${selected.source.title}](${selected.source.link})*`
     : "";
   const post = await blogStore().create({
     title: draft.title,
@@ -104,6 +106,10 @@ function runGates(args: {
   if (!entityCoverageGate({ entities: args.item.entities, body: args.draft.body }))
     return "gate_entity_coverage";
   const titleEntities = extractEntities(args.draft.title).map((s) => s.toLowerCase());
+  // recentEntities=[] is intentional: selectNewsItem already rejects items
+  // whose entities overlap with state.recentEntities(7d), so by this point the
+  // entity-overlap check would be a no-op. We're only using the Jaccard
+  // title-similarity check from this gate.
   const dupe = duplicateTopicGate({
     newTitle: args.draft.title,
     recentTitles: args.recent.map((p) => p.title),
