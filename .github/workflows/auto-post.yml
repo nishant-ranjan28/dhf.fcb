@@ -1,8 +1,12 @@
-name: Hourly auto-post
+name: Auto-post (throttled)
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    # Every 4 hours = 6 runs/day. Throttled from hourly while we accumulate
+    # organic traffic before applying to AdSense — a 49-posts-in-24h curve
+    # reads as content-farming to reviewers. Restore "0 * * * *" after
+    # approval if you want to scale back up.
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 permissions:
