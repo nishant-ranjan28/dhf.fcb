@@ -133,13 +133,13 @@ export default async function BlogPostPage({
             ))}
           </div>
         )}
-        <ShareButtons url={shareUrl} title={post.title} />
+        <ShareButtons url={shareUrl} title={post.title} excerpt={post.excerpt} tags={post.tags} />
         <div
           className="prose-blog mt-2 text-[15px] text-white leading-relaxed"
           dangerouslySetInnerHTML={{ __html: html }}
         />
         <div className="mt-6">
-          <ShareButtons url={shareUrl} title={post.title} />
+          <ShareButtons url={shareUrl} title={post.title} excerpt={post.excerpt} tags={post.tags} />
         </div>
 
         <PostNavigation newer={newer} older={older} />
