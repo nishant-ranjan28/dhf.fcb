@@ -5,20 +5,47 @@ import { useState } from "react";
 interface Props {
   url: string;
   title: string;
+  /** One-line summary; included in the pre-filled share text for X/WhatsApp/Telegram. */
+  excerpt?: string;
+  /** Lowercase tags; the top 2 become X hashtags. */
+  tags?: string[];
 }
 
-export function ShareButtons({ url, title }: Props) {
+export function ShareButtons({ url, title, excerpt, tags }: Props) {
   const [copied, setCopied] = useState(false);
 
   const enc = (s: string) => encodeURIComponent(s);
   const u = enc(url);
-  const t = enc(title);
+
+  // X/Twitter renders the URL as an attached card, so we put title + excerpt
+  // in the text and pass the URL separately to avoid a double-link.
+  const xText = excerpt ? `${title}\n\n${excerpt}` : title;
+  const xHashtags = (tags ?? [])
+    .filter((t) => /^[a-z0-9]+$/i.test(t)) // X hashtags can't contain dashes/spaces
+    .slice(0, 2)
+    .join(",");
+  const xHref =
+    `https://twitter.com/intent/tweet?url=${u}&text=${enc(xText)}` +
+    (xHashtags ? `&hashtags=${enc(xHashtags)}` : "");
+
+  // WhatsApp has a single text param — the URL goes inside the message body.
+  const waText = excerpt ? `${title}\n\n${excerpt}\n\n${url}` : `${title} ${url}`;
+  const waHref = `https://wa.me/?text=${enc(waText)}`;
+
+  // Telegram accepts url + text separately.
+  const tgText = excerpt ? `${title} — ${excerpt}` : title;
+  const tgHref = `https://t.me/share/url?url=${u}&text=${enc(tgText)}`;
+
+  // Facebook's sharer.php only honors the URL — text params are ignored.
+  // The share dialog reads our page's OG meta tags (title, description, image)
+  // to fill the card. See app/blog/[slug]/page.tsx generateMetadata.
+  const fbHref = `https://www.facebook.com/sharer/sharer.php?u=${u}`;
 
   const targets = [
     {
       name: "X",
       label: "Share on X",
-      href: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
+      href: xHref,
       color: "hover:bg-[#1d9bf0]/20 hover:ring-[#1d9bf0]/60 hover:text-white",
       icon: (
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden>
@@ -29,7 +56,7 @@ export function ShareButtons({ url, title }: Props) {
     {
       name: "WhatsApp",
       label: "Share on WhatsApp",
-      href: `https://wa.me/?text=${t}%20${u}`,
+      href: waHref,
       color: "hover:bg-[#25d366]/20 hover:ring-[#25d366]/60 hover:text-white",
       icon: (
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden>
@@ -40,7 +67,7 @@ export function ShareButtons({ url, title }: Props) {
     {
       name: "Telegram",
       label: "Share on Telegram",
-      href: `https://t.me/share/url?url=${u}&text=${t}`,
+      href: tgHref,
       color: "hover:bg-[#229ED9]/20 hover:ring-[#229ED9]/60 hover:text-white",
       icon: (
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden>
@@ -51,7 +78,7 @@ export function ShareButtons({ url, title }: Props) {
     {
       name: "Facebook",
       label: "Share on Facebook",
-      href: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
+      href: fbHref,
       color: "hover:bg-[#1877f2]/20 hover:ring-[#1877f2]/60 hover:text-white",
       icon: (
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden>
