@@ -7,9 +7,23 @@ const STOP_WORDS = new Set([
   "these","those","it","its","i","you","he","she","we","they",
 ]);
 
+// Tokens that look like proper nouns but aren't real entities for our
+// purposes — news source/site names and generic header words. If any token
+// in an extracted phrase matches this set, the whole phrase is dropped.
+// Example: "Tranfermarkt LaLiga" capitalised in a headline is a typo'd
+// citation, not something the post body should be required to repeat.
+const SOURCE_NOISE = new Set([
+  // Source / publication names
+  "transfermarkt", "tranfermarkt", "marca", "espn", "espnfc", "bbc",
+  "reuters", "guardian", "reddit", "mundo", "deportivo", "sky", "afp",
+  // Generic header decoration that often appears Capitalised
+  "report", "news", "update", "today", "live", "exclusive", "breaking",
+  "official", "watch", "video", "photos",
+]);
+
 /** Naive named-entity extraction: capitalized runs of 1–3 words, with stop
- *  words filtered out. Plenty good for sports headlines where club and player
- *  names are usually proper-cased. */
+ *  words and source-noise tokens filtered out. Plenty good for sports
+ *  headlines where club and player names are usually proper-cased. */
 export function extractEntities(title: string): string[] {
   const out = new Set<string>();
   const re = /([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){0,2})/g;
@@ -18,6 +32,9 @@ export function extractEntities(title: string): string[] {
     const phrase = m[1].toLowerCase();
     if (STOP_WORDS.has(phrase)) continue;
     if (phrase.length < 3) continue;
+    // Drop phrases whose tokens look like source citations / decoration.
+    const tokens = phrase.split(/\s+/);
+    if (tokens.some((t) => SOURCE_NOISE.has(t))) continue;
     out.add(phrase);
   }
   return [...out];

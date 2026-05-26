@@ -130,4 +130,20 @@ describe("entityCoverageGate", () => {
     });
     expect(ok).toBe(true);
   });
+  it("passes a multi-word entity when its significant token appears (verbatim missing)", () => {
+    // "Man City" extracted from headline, but body uses "Manchester City".
+    // The token "city" (4+ chars) appears bounded → covered.
+    const ok = entityCoverageGate({
+      entities: ["man city"],
+      body: "Manchester City retained their winger after a long negotiation.",
+    });
+    expect(ok).toBe(true);
+  });
+  it("still fails when neither verbatim nor any significant token matches", () => {
+    const ok = entityCoverageGate({
+      entities: ["man city"],
+      body: "United had a quiet transfer window.",
+    });
+    expect(ok).toBe(false);
+  });
 });

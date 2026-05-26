@@ -77,12 +77,28 @@ export function explainEntityCoverage(input: { entities: string[]; body: string 
   missing: string[];
 } {
   const lowerBody = input.body.toLowerCase();
-  const missing = input.entities.filter((e) => !lowerBody.includes(e.toLowerCase()));
+  const missing = input.entities.filter((e) => !entityAppearsInBody(e, lowerBody));
   return { ok: missing.length === 0, missing };
 }
 
 export function entityCoverageGate(input: { entities: string[]; body: string }): boolean {
   return explainEntityCoverage(input).ok;
+}
+
+/** Match an entity against a (lower-cased) body. Tries verbatim substring
+ *  first, then falls back to "any significant token appears at word
+ *  boundary" so that "Man City" passes when the body uses "Manchester City". */
+function entityAppearsInBody(entity: string, lowerBody: string): boolean {
+  const lowerEntity = entity.toLowerCase();
+  if (lowerBody.includes(lowerEntity)) return true;
+  // Multi-word fallback. Require any token of 4+ chars to appear bounded.
+  const tokens = lowerEntity.split(/\s+/).filter((t) => t.length >= 4);
+  if (tokens.length === 0) return false;
+  return tokens.some((t) => new RegExp(`\\b${escapeRegExp(t)}\\b`).test(lowerBody));
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function tokenize(s: string): Set<string> {
