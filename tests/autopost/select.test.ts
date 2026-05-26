@@ -25,6 +25,17 @@ describe("extractEntities", () => {
     expect(ents).toContain("barcelona");
     expect(ents).toContain("real madrid");
   });
+  it("filters out source-noise tokens like 'Transfermarkt' / 'LaLiga'", () => {
+    // These appeared as real false-positive entities in production logs.
+    const ents = extractEntities("Tranfermarkt LaLiga Player of the Season: Yamal wins");
+    expect(ents).not.toContain("tranfermarkt laliga");
+    expect(ents).toContain("yamal");
+  });
+  it("filters generic header decoration like 'Breaking' / 'Official'", () => {
+    const ents = extractEntities("Breaking: Yamal signs new deal");
+    expect(ents).not.toContain("breaking");
+    expect(ents).toContain("yamal");
+  });
 });
 
 describe("selectNewsItem", () => {
