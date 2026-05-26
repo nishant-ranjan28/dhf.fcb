@@ -7,12 +7,16 @@ export async function announce(post: BlogPost, siteUrl: string): Promise<Announc
   const url = `${siteUrl}/blog/${post.slug}`;
   const [tg, fb] = await Promise.all([
     isTelegramConfigured()
-      ? sendTelegramMessage({ text: formatBlogPost(post, siteUrl) }).then((r) => (r.ok ? ("ok" as const) : ("err" as const)))
+      ? sendTelegramMessage({ text: formatBlogPost(post, siteUrl) }).then((r) => {
+          if (!r.ok) console.warn("[autopost] telegram error:", r.error);
+          return r.ok ? ("ok" as const) : ("err" as const);
+        })
       : Promise.resolve("skipped" as const),
     isFacebookConfigured()
-      ? postToFacebookPage({ message: `${post.title}\n\n${post.excerpt}`, link: url }).then((r) =>
-          r.ok ? ("ok" as const) : ("err" as const),
-        )
+      ? postToFacebookPage({ message: `${post.title}\n\n${post.excerpt}`, link: url }).then((r) => {
+          if (!r.ok) console.warn("[autopost] facebook error:", r.error);
+          return r.ok ? ("ok" as const) : ("err" as const);
+        })
       : Promise.resolve("skipped" as const),
   ]);
   return { telegram: tg, facebook: fb };
