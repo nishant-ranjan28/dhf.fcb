@@ -1,6 +1,6 @@
 import type { Match } from "@/lib/types";
 import { KickoffCountdown } from "./KickoffCountdown";
-import { LocalDateTime } from "./LocalDateTime";
+import { LocalTime } from "./LocalTime";
 
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -32,7 +32,7 @@ export function MatchFacts({ match }: { match: Match }) {
         <Fact label="Competition" value={match.competitionName} />
         {match.round && <Fact label="Round" value={match.round} />}
         {match.group && <Fact label="Group" value={match.group} />}
-        <Fact label="Kick-off" value={<LocalDateTime iso={match.kickoff} />} />
+        <Fact label="Kick-off" value={<LocalTime iso={match.kickoff} preset="datetime" />} />
         {match.venue && <Fact label="Venue" value={match.venue} />}
       </div>
     </section>

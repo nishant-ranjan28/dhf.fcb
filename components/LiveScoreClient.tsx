@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Match } from "@/lib/types";
+import { LocalTime } from "./LocalTime";
 import { buildCommentary, computeMomentum } from "@/lib/match/commentary";
 import {
   CommentaryFeed,
@@ -140,11 +141,8 @@ function StatusLine({
   if (status === "HT") return <div className="mt-1 text-[11px] font-bold text-amber-400">HALF TIME</div>;
   if (status === "FT") return <div className="mt-1 text-[11px] font-bold text-ink-muted">FULL TIME</div>;
   return (
-    // Locale/timezone formatting differs between the (UTC) server and the
-    // viewer's browser — Node renders "06:30", the browser "06:30 am". The
-    // server value is a fine fallback; suppress the expected hydration diff.
-    <div className="mt-1 text-[11px] text-ink-muted" suppressHydrationWarning>
-      KO {new Date(kickoff).toLocaleString([], { hour: "2-digit", minute: "2-digit" })}
+    <div className="mt-1 text-[11px] text-ink-muted">
+      KO <LocalTime iso={kickoff} preset="time" />
     </div>
   );
 }
