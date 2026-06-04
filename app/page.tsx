@@ -1,3 +1,5 @@
+import { HomeHero } from "@/components/HomeHero";
+import { CategoryTiles } from "@/components/CategoryTiles";
 import { LiveMatches } from "@/components/LiveMatches";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -29,14 +31,17 @@ export default async function HomePage() {
 
   return (
     <>
-      <SectionTitle title="Live Matches" href="/live" />
+      <HomeHero />
+      <CategoryTiles />
+
+      <SectionTitle title="Live Matches" href="/live" accent="live" />
       <LiveMatches matches={live} />
 
       <TelegramCTA />
 
       <AdSlot size="320x100" />
 
-      <SectionTitle title="Barca Feed" href="/barca" />
+      <SectionTitle title="Barca Feed" href="/barca" accent="blue" />
       <div className="px-4 space-y-2">
         {barcaNews.map((p) => (
           <NewsCard key={p.id} post={p} />
@@ -45,7 +50,7 @@ export default async function HomePage() {
 
       <AdSlot size="300x250" />
 
-      <SectionTitle title="FIFA · Upcoming" href="/fifa" />
+      <SectionTitle title="FIFA · Upcoming" href="/fifa" accent="purple" />
       <div className="px-4 space-y-2">
         {fifaUpcoming.map((m) => (
           <MatchCard key={m.slug} match={m} />
@@ -54,7 +59,7 @@ export default async function HomePage() {
 
       {fifaQuick.length > 0 && (
         <>
-          <SectionTitle title="FIFA · Quick scores" href="/fifa" />
+          <SectionTitle title="FIFA · Quick scores" href="/fifa" accent="purple" />
           <div className="px-4 space-y-2">
             {fifaQuick.map((m) => (
               <MatchCard key={m.slug} match={m} />
@@ -63,7 +68,7 @@ export default async function HomePage() {
         </>
       )}
 
-      <SectionTitle title="Trending" />
+      <SectionTitle title="Trending" accent="gold" />
       <div className="px-4 space-y-2 pb-2">
         {trending.map((m) => (
           <MatchCard key={m.slug} match={m} />

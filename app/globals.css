@@ -25,6 +25,21 @@
   .aspect-video {
     aspect-ratio: 16 / 9;
   }
+
+  /* Slowly drifting multi-stop gradient, used by the homepage hero. The
+     oversized background-size gives the animation room to pan. */
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-pan 12s ease infinite;
+  }
+  @keyframes gradient-pan {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-gradient { animation: none; }
+  }
 }
 
 /* Long-form blog body. We avoid pulling in @tailwindcss/typography since
