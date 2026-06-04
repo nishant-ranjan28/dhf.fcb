@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { Match } from "@/lib/types";
+import { buildCommentary, computeMomentum } from "@/lib/match/commentary";
+import {
+  CommentaryFeed,
+  KeyMomentsTimeline,
+  LiveStatusHero,
+  MomentumBar,
+} from "./LiveModules";
 
 export function LiveScoreClient({ initial }: { initial: Match }) {
   const [match, setMatch] = useState<Match>(initial);
@@ -55,6 +62,13 @@ export function LiveScoreClient({ initial }: { initial: Match }) {
     };
   }, [match.slug, match.status]);
 
+  const commentary = buildCommentary(match);
+  const isLive = match.status === "LIVE" || match.status === "HT";
+  const currentMinute =
+    match.status === "FT"
+      ? 90
+      : Math.max(match.minute, ...match.events.map((e) => e.minute), 0);
+
   return (
     <section className="px-4">
       <div className="rounded-xl bg-ink-soft border border-ink-line p-4">
@@ -78,8 +92,21 @@ export function LiveScoreClient({ initial }: { initial: Match }) {
         </div>
       </div>
 
-      <Events events={match.events} home={match.home.name} away={match.away.name} />
-      <Stats stats={match.stats} />
+      <LiveStatusHero status={match.status} minute={match.minute} lastLine={commentary[0] ?? null} />
+
+      {isLive && match.events.length > 0 && (
+        <MomentumBar
+          momentum={computeMomentum(match)}
+          home={match.home.name}
+          away={match.away.name}
+        />
+      )}
+
+      <KeyMomentsTimeline events={match.events} currentMinute={currentMinute} />
+
+      <CommentaryFeed lines={commentary} />
+
+      <Stats stats={match.stats} status={match.status} />
       <Lineups
         home={match.home.name}
         away={match.away.name}
@@ -119,58 +146,18 @@ function StatusLine({
   );
 }
 
-function Events({
-  events,
-  home,
-  away,
-}: {
-  events: Match["events"];
-  home: string;
-  away: string;
-}) {
-  if (events.length === 0) return null;
-  return (
-    <div className="mt-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted mb-2 px-1">
-        Timeline
-      </h2>
-      <ul className="rounded-xl bg-ink-soft border border-ink-line divide-y divide-ink-line">
-        {events.map((e, i) => (
-          <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
-            <span className="font-mono text-ink-muted w-9">{e.minute}&apos;</span>
-            <span aria-hidden>{eventIcon(e.type)}</span>
-            <span className="text-white">{e.player}</span>
-            {e.detail && <span className="text-ink-muted text-[12px]">· {e.detail}</span>}
-            <span className="ml-auto text-[11px] text-ink-muted truncate">
-              {e.team === "home" ? home : away}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function eventIcon(t: Match["events"][number]["type"]): string {
-  switch (t) {
-    case "goal":
-      return "⚽";
-    case "yellow":
-      return "🟨";
-    case "red":
-      return "🟥";
-    case "sub":
-      return "🔁";
-  }
-}
-
-function Stats({ stats }: { stats: Match["stats"] }) {
+function Stats({ stats, status }: { stats: Match["stats"]; status: Match["status"] }) {
   const rows: { label: string; home: number; away: number; pct?: boolean }[] = [
     { label: "Possession", home: stats.possession.home, away: stats.possession.away, pct: true },
     { label: "Shots", home: stats.shots.home, away: stats.shots.away },
     { label: "On target", home: stats.shotsOnTarget.home, away: stats.shotsOnTarget.away },
     { label: "Corners", home: stats.corners.home, away: stats.corners.away },
   ];
+  // Before kickoff there are no stats; and providers often return all-zero
+  // placeholders. Hide the block rather than show a wall of dull zeros — the
+  // pre-match insight sections carry the page instead.
+  const hasData = rows.some((r) => (r.pct ? r.home !== 50 || r.away !== 50 : r.home > 0 || r.away > 0));
+  if (status === "SCHED" || !hasData) return null;
   return (
     <div className="mt-4">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted mb-2 px-1">

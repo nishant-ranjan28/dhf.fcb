@@ -16,7 +16,10 @@ function statusBadge(m: Match) {
   if (m.status === "HT") return <span className="text-[11px] font-bold text-amber-400">HT</span>;
   if (m.status === "FT") return <span className="text-[11px] font-bold text-ink-muted">FT</span>;
   return (
-    <span className="text-[11px] text-ink-muted">
+    // Locale/timezone formatting differs between the (UTC) server and the
+    // user's browser. The server value is a fine fallback; the client renders
+    // the correct local time on hydration. Suppress the expected text diff.
+    <span className="text-[11px] text-ink-muted" suppressHydrationWarning>
       {new Date(m.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
     </span>
   );

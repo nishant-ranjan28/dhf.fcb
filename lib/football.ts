@@ -238,10 +238,12 @@ function buildLineup(formation: string | undefined, starting: string[] | undefin
 function buildMatch(s: Seed): Match {
   const { status, minute } = inferStatus(s.kickoffOffset, s.forceStatus);
   const kickoff = new Date(Date.now() + s.kickoffOffset * 60_000).toISOString();
+  const group = s.compName.match(/Group\s+[A-Z]/i)?.[0];
   return {
     slug: matchSlug(s.home.name, s.away.name),
     competition: s.comp,
     competitionName: s.compName,
+    group,
     home: s.home,
     away: s.away,
     scoreHome: s.scoreHome,

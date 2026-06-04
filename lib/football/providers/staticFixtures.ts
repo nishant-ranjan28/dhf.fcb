@@ -13,6 +13,7 @@ type OfTeam = string | OfTeamObj;
 interface OfMatch {
   date: string;
   time?: string;
+  round?: string;
   team1: OfTeam;
   team2: OfTeam;
   group?: string;
@@ -29,6 +30,14 @@ interface OfSchedule {
 
 function teamName(t: OfTeam): string {
   return typeof t === "string" ? t : t.name;
+}
+
+/** Normalize a group label to "Group X" form. openfootball uses bare "A"
+ *  or "B"; our own data uses "Group A". Returns undefined for empty input. */
+export function normalizeGroup(group?: string): string | undefined {
+  const g = group?.trim();
+  if (!g) return undefined;
+  return /^group\b/i.test(g) ? g.replace(/^group/i, "Group") : `Group ${g}`;
 }
 
 function teamShort(t: OfTeam): string {
@@ -77,6 +86,8 @@ export function mapOpenFootballSchedule(raw: OfSchedule): Match[] {
       slug: matchSlug(home, away),
       competition: "fifa" as const,
       competitionName: raw.name,
+      group: normalizeGroup(m.group),
+      round: m.round?.trim() || undefined,
       home: { name: home, short: teamShort(m.team1) },
       away: { name: away, short: teamShort(m.team2) },
       scoreHome: score[0],

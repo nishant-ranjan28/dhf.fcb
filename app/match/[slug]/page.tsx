@@ -1,9 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LiveScoreClient } from "@/components/LiveScoreClient";
+import { MatchInsights } from "@/components/MatchInsights";
+import { insightsStateHash } from "@/lib/ai/insights";
+import { MatchFacts } from "@/components/MatchFacts";
+import { WhereToWatch } from "@/components/WhereToWatch";
+import { GroupContext } from "@/components/GroupContext";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { getAllMatches, getMatchBySlug } from "@/lib/football";
+import { broadcastersFor } from "@/data/broadcasters";
 import { env } from "@/lib/env";
 import type { Metadata } from "next";
 
@@ -37,6 +43,13 @@ export default async function MatchPage({
   const { slug } = await params;
   const match = await getMatchBySlug(slug);
   if (!match) notFound();
+
+  // Group-stage context: the other matches sharing this match's group.
+  const groupMatches = match.group
+    ? (await getAllMatches()).filter(
+        (m) => m.competition === match.competition && m.group === match.group,
+      )
+    : [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -74,7 +87,16 @@ export default async function MatchPage({
         <LiveScoreClient initial={match} />
       </div>
 
+      <MatchInsights slug={match.slug} stateKey={insightsStateHash(match)} />
+
+      <MatchFacts match={match} />
+
+      <WhereToWatch broadcasters={broadcastersFor(match.competition)} />
+
       <TelegramCTA />
+
+      <GroupContext match={match} groupMatches={groupMatches} />
+
       <AdSlot size="300x250" />
     </>
   );

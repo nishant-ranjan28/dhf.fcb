@@ -23,12 +23,32 @@ describe("mapOpenFootballSchedule", () => {
     expect(out).toHaveLength(1);
     expect(out[0].competition).toBe("fifa");
     expect(out[0].status).toBe("SCHED");
+    expect(out[0].group).toBe("Group B");
     expect(out[0].slug).toBe("argentina-vs-brazil");
     expect(out[0].competitionName).toBe("FIFA World Cup 2026");
     expect(out[0].home.name).toBe("Argentina");
     expect(out[0].away.name).toBe("Brazil");
     expect(out[0].scoreHome).toBe(0);
     expect(out[0].scoreAway).toBe(0);
+  });
+
+  it("carries the round/matchday label through", () => {
+    const raw = {
+      name: "FIFA World Cup 2026",
+      matches: [
+        {
+          date: "2026-06-12",
+          time: "18:00",
+          round: "Matchday 1",
+          team1: "Argentina",
+          team2: "Brazil",
+          group: "Group B",
+        },
+      ],
+    };
+    const out = mapOpenFootballSchedule(raw);
+    expect(out[0].round).toBe("Matchday 1");
+    expect(out[0].group).toBe("Group B");
   });
 
   it("supports object form for team1/team2", () => {

@@ -33,6 +33,10 @@ export interface Match {
   slug: string;
   competition: Competition;
   competitionName: string;
+  /** Group-stage label, e.g. "Group A". Undefined for knockout / non-group matches. */
+  group?: string;
+  /** Round / matchday label, e.g. "Matchday 1", "Round of 16". Undefined when unknown. */
+  round?: string;
   home: Team;
   away: Team;
   scoreHome: number;
