@@ -90,6 +90,14 @@ export function formatNewsItem(item: {
   return lines.join("\n");
 }
 
+export function formatHighlight(item: { title: string; youtubeId: string }): string {
+  const url = `https://www.youtube.com/watch?v=${item.youtubeId}`;
+  // Keep the link bare and previews on so Telegram renders the video card.
+  return [`🎬 <b>${escHtml(item.title)}</b>`, "", `<a href="${escHtml(url)}">Watch highlights →</a>`].join(
+    "\n",
+  );
+}
+
 // Convenience for admin "send this exact NewsPost from the cache" path —
 // derives source label from the slug prefix that lib/news/rss.ts assigns.
 export function formatNewsPost(post: NewsPost): string {

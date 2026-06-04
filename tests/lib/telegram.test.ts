@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   formatBlogPost,
+  formatHighlight,
   formatNewsItem,
   formatNewsPost,
   isTelegramConfigured,
@@ -148,6 +149,18 @@ describe("formatNewsItem", () => {
   it("works without source", () => {
     const out = formatNewsItem({ title: "x", link: "https://y.com" });
     expect(out).not.toContain("<i>");
+  });
+});
+
+describe("formatHighlight", () => {
+  it("builds a watch URL from the video id and keeps the title", () => {
+    const out = formatHighlight({ title: "Argentina 3-2 Brazil", youtubeId: "dQw4w9WgXcQ" });
+    expect(out).toContain("<b>Argentina 3-2 Brazil</b>");
+    expect(out).toContain('href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"');
+  });
+  it("entity-encodes angle brackets in the title", () => {
+    const out = formatHighlight({ title: "A <b> B", youtubeId: "dQw4w9WgXcQ" });
+    expect(out).toContain("A &lt;b&gt; B");
   });
 });
 

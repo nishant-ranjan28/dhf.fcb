@@ -6,7 +6,8 @@ type State = "idle" | "pending" | "ok" | "error";
 
 type Payload =
   | { kind: "blog"; slug: string }
-  | { kind: "news"; title: string; link: string; source?: string };
+  | { kind: "news"; title: string; link: string; source?: string }
+  | { kind: "highlight"; title: string; youtubeId: string };
 
 interface Props {
   payload: Payload;

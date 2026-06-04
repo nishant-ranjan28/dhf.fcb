@@ -3,6 +3,7 @@ import { isAdminAuthorized } from "@/lib/blog/auth";
 import { blogStore } from "@/lib/blog/store";
 import {
   formatBlogPost,
+  formatHighlight,
   formatNewsItem,
   isTelegramConfigured,
   sendTelegramMessage,
@@ -21,7 +22,13 @@ interface NewsPayload {
   source?: string;
 }
 
-type Payload = BlogPayload | NewsPayload;
+interface HighlightPayload {
+  kind: "highlight";
+  title: string;
+  youtubeId: string;
+}
+
+type Payload = BlogPayload | NewsPayload | HighlightPayload;
 
 function isPayload(v: unknown): v is Payload {
   if (!v || typeof v !== "object") return false;
@@ -33,6 +40,14 @@ function isPayload(v: unknown): v is Payload {
       o.title.length > 0 &&
       typeof o.link === "string" &&
       /^https?:\/\//.test(o.link)
+    );
+  }
+  if (o.kind === "highlight") {
+    return (
+      typeof o.title === "string" &&
+      o.title.length > 0 &&
+      typeof o.youtubeId === "string" &&
+      /^[A-Za-z0-9_-]{11}$/.test(o.youtubeId)
     );
   }
   return false;
@@ -62,6 +77,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "post not found" }, { status: 404 });
     }
     text = formatBlogPost(post, env.siteUrl);
+  } else if (body.kind === "highlight") {
+    text = formatHighlight({ title: body.title, youtubeId: body.youtubeId });
   } else {
     text = formatNewsItem({
       title: body.title,
