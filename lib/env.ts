@@ -13,6 +13,7 @@ export interface AppEnv {
   newsTtlSeconds: number;
   cronToken?: string;
   autopostEnabled: boolean;
+  recapEnabled: boolean;
   groqApiKey?: string;
   groqModel: string;
 }
@@ -61,6 +62,7 @@ function build(): AppEnv {
     newsTtlSeconds: num(process.env.NEWS_TTL_SECONDS, 600),
     cronToken: process.env.CRON_TOKEN?.trim() || undefined,
     autopostEnabled: process.env.AUTOPOST_ENABLED?.trim() === "true",
+    recapEnabled: process.env.RECAP_ENABLED?.trim() === "true",
     groqApiKey: process.env.GROQ_API_KEY?.trim() || undefined,
     groqModel: process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile",
   };
