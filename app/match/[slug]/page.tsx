@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LiveScoreClient } from "@/components/LiveScoreClient";
 import { MatchInsights } from "@/components/MatchInsights";
 import { insightsStateHash } from "@/lib/ai/insights";
+import { PredictionCard } from "@/components/PredictionCard";
 import { MatchFacts } from "@/components/MatchFacts";
 import { WhereToWatch } from "@/components/WhereToWatch";
 import { GroupContext } from "@/components/GroupContext";
@@ -90,6 +91,8 @@ export default async function MatchPage({
       <MatchInsights slug={match.slug} stateKey={insightsStateHash(match)} />
 
       <MatchFacts match={match} />
+
+      <PredictionCard match={match} />
 
       <WhereToWatch broadcasters={broadcastersFor(match.competition)} />
 
