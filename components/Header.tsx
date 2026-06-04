@@ -27,6 +27,16 @@ export function Header() {
               {t.label}
             </Link>
           ))}
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="p-1.5 rounded-md text-ink-muted hover:text-white hover:bg-ink-soft"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" strokeLinecap="round" />
+            </svg>
+          </Link>
         </nav>
       </div>
     </header>
