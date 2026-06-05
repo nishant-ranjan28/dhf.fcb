@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { followableTeams, matchesForTeams } from "@/lib/follows";
+import { followableTeams, isPlaceholderTeam, matchesForTeams } from "@/lib/follows";
+import { CLUBS } from "@/data/clubs";
 import type { Match } from "@/lib/types";
 
 const HOUR = 3600_000;
@@ -30,15 +31,54 @@ function m(home: string, away: string, over: Partial<Match> = {}): Match {
   };
 }
 
+describe("isPlaceholderTeam", () => {
+  it("flags bracket placeholders", () => {
+    for (const n of ["1A", "2B", "3A/B/C/D/F", "W73", "W101", "L101", "A1"]) {
+      expect(isPlaceholderTeam(n)).toBe(true);
+    }
+  });
+  it("keeps real team names", () => {
+    for (const n of ["Mexico", "USA", "DR Congo", "South Korea", "FC Barcelona", "Iran"]) {
+      expect(isPlaceholderTeam(n)).toBe(false);
+    }
+  });
+});
+
 describe("followableTeams", () => {
   it("returns unique team names sorted alphabetically", () => {
-    const teams = followableTeams([m("Mexico", "Brazil"), m("Brazil", "Spain")]);
+    const teams = followableTeams([m("Mexico", "Brazil"), m("Brazil", "Spain")], []);
     expect(teams.map((t) => t.name)).toEqual(["Brazil", "Mexico", "Spain"]);
   });
 
   it("carries each team's competition", () => {
-    const teams = followableTeams([m("FC Barcelona", "Real Madrid", { competition: "barca" })]);
+    const teams = followableTeams([m("FC Barcelona", "Real Madrid", { competition: "barca" })], []);
     expect(teams.find((t) => t.name === "FC Barcelona")?.competition).toBe("barca");
+  });
+
+  it("filters out bracket placeholders, keeping only real teams", () => {
+    const all = [m("Mexico", "1A"), m("W73", "W74"), m("Brazil", "3A/B/C/D/F")];
+    expect(followableTeams(all, []).map((t) => t.name)).toEqual(["Brazil", "Mexico"]);
+  });
+
+  it("merges curated clubs by default", () => {
+    const teams = followableTeams([m("Mexico", "Brazil")]);
+    const names = teams.map((t) => t.name);
+    expect(names).toContain("FC Barcelona");
+    expect(names).toContain("Manchester City");
+    expect(names).toContain("Mexico");
+  });
+
+  it("prefers a real fixture team over the curated club of the same name", () => {
+    // FC Barcelona from a real LaLiga fixture should win over the curated entry.
+    const teams = followableTeams([m("FC Barcelona", "Real Madrid", { competition: "barca", competitionName: "LaLiga" })]);
+    const barca = teams.find((t) => t.name === "FC Barcelona");
+    expect(barca?.label).toBe("LaLiga");
+    // Curated-only club still present.
+    expect(teams.some((t) => t.name === "Ajax")).toBe(true);
+  });
+
+  it("ships a non-trivial curated club list", () => {
+    expect(CLUBS.length).toBeGreaterThan(20);
   });
 });
 

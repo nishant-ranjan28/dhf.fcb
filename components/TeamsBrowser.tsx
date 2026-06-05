@@ -41,9 +41,7 @@ export function TeamsBrowser({ teams }: { teams: FollowableTeam[] }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm text-white">{t.name}</p>
-              <p className="text-[11px] text-ink-muted">
-                {t.competition === "barca" ? "Club" : t.competition === "fifa" ? "World Cup" : "Other"}
-              </p>
+              <p className="text-[11px] text-ink-muted">{t.label}</p>
             </div>
             <FollowButton team={t.name} />
           </li>
