@@ -8,6 +8,12 @@
     color: #FFFFFF;
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
+    /* Guardrail: never let a stray wide element scroll the whole page
+       sideways on mobile. `clip` (not `hidden`) doesn't break the sticky
+       header the way an overflow scroll container would. Genuinely
+       horizontally-scrollable rows (highlights, nav) own their own
+       overflow-x-auto, so they're unaffected. */
+    overflow-x: clip;
   }
   body {
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
