@@ -19,6 +19,8 @@ export interface RecapState {
   publishedToday(): Promise<number>;
   dayCapReached(cap: number): Promise<boolean>;
   recordPublish(): Promise<void>;
+  /** Total matches ever recapped (size of the dedup set). */
+  totalRecapped(): Promise<number>;
   _reset?(): Promise<void>;
 }
 
@@ -42,6 +44,9 @@ function makeRedisState(client: Redis): RecapState {
       // First write of the day: expire after 2 days so old counters self-clean.
       if (n === 1) await client.expire(key, 60 * 60 * 48);
     },
+    async totalRecapped() {
+      return await client.scard(DONE_KEY);
+    },
   };
 }
 
@@ -63,6 +68,9 @@ function makeMemoryState(): RecapState {
     },
     async recordPublish() {
       counts.set(ymd(), (counts.get(ymd()) ?? 0) + 1);
+    },
+    async totalRecapped() {
+      return done.size;
     },
     async _reset() {
       done.clear();

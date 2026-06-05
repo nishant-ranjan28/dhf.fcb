@@ -13,6 +13,9 @@ export default function AuthedAdminLayout({
             <Link href="/admin/blog" className="font-semibold text-white">
               Admin
             </Link>
+            <Link href="/admin/dashboard" className="text-ink-muted hover:text-white">
+              Dashboard
+            </Link>
             <Link href="/admin/blog" className="text-ink-muted hover:text-white">
               Posts
             </Link>

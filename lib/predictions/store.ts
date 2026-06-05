@@ -36,6 +36,15 @@ export interface UserStats {
   name: string | null;
 }
 
+export interface PredictionsStats {
+  /** Distinct players on the leaderboard. */
+  players: number;
+  /** Total predictions cast across all matches. */
+  predictions: number;
+  /** Matches that have been settled. */
+  settledMatches: number;
+}
+
 export interface SettleResult {
   settled: boolean;
   scored: number;
@@ -50,6 +59,7 @@ export interface PredictionsStore {
   predictedMatchSlugs(): Promise<string[]>;
   leaderboard(limit: number): Promise<LeaderboardEntry[]>;
   userStats(deviceId: string): Promise<UserStats>;
+  stats(): Promise<PredictionsStats>;
   _reset?(): Promise<void>;
 }
 
@@ -142,6 +152,19 @@ function makeRedisStore(client: Redis): PredictionsStore {
         name: name ?? null,
       };
     },
+    async stats() {
+      const slugs = (await client.smembers(MATCHES_KEY)) as string[];
+      const lens = await Promise.all(slugs.map((s) => client.hlen(MATCH_KEY(s))));
+      const [players, settledMatches] = await Promise.all([
+        client.zcard(BOARD_KEY),
+        client.scard(SETTLED_KEY),
+      ]);
+      return {
+        players: Number(players) || 0,
+        predictions: lens.reduce((a, b) => a + (Number(b) || 0), 0),
+        settledMatches: Number(settledMatches) || 0,
+      };
+    },
   };
 }
 
@@ -207,6 +230,11 @@ function makeMemoryStore(): PredictionsStore {
       }
       const rank = sortedBoard().findIndex(([d]) => d === deviceId) + 1;
       return { points: board.get(deviceId) ?? 0, rank, name: names.get(deviceId) ?? null };
+    },
+    async stats() {
+      let predictions = 0;
+      for (const m of matches.values()) predictions += m.size;
+      return { players: board.size, predictions, settledMatches: settled.size };
     },
     async _reset() {
       matches.clear();
