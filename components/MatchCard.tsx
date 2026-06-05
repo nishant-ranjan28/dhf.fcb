@@ -27,13 +27,13 @@ export function MatchCard({ match }: { match: Match }) {
       className="block bg-ink-soft border border-ink-line rounded-xl p-3 active:scale-[0.99] transition"
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] uppercase tracking-wide text-ink-muted truncate">
+        <span className="text-[11px] uppercase tracking-wide text-ink-muted truncate min-w-0">
           {match.competitionName}
         </span>
         {statusBadge(match)}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
         <Team name={match.home.name} align="left" />
         <Score
           home={match.scoreHome}
@@ -49,7 +49,7 @@ export function MatchCard({ match }: { match: Match }) {
 
 function Team({ name, align }: { name: string; align: "left" | "right" }) {
   return (
-    <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : ""}`}>
+    <div className={`flex items-center gap-2 min-w-0 ${align === "right" ? "justify-end" : ""}`}>
       <span className="text-sm font-semibold text-white truncate">{name}</span>
     </div>
   );
