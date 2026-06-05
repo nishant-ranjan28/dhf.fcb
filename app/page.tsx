@@ -1,5 +1,6 @@
 import { HomeHero } from "@/components/HomeHero";
 import { CategoryTiles } from "@/components/CategoryTiles";
+import { YourTeams } from "@/components/YourTeams";
 import { LiveMatches } from "@/components/LiveMatches";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -33,6 +34,8 @@ export default async function HomePage() {
     <>
       <HomeHero />
       <CategoryTiles />
+
+      <YourTeams />
 
       <SectionTitle title="Live Matches" href="/live" accent="live" />
       <LiveMatches matches={live} />

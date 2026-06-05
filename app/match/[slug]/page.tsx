@@ -4,6 +4,7 @@ import { LiveScoreClient } from "@/components/LiveScoreClient";
 import { MatchInsights } from "@/components/MatchInsights";
 import { insightsStateHash } from "@/lib/ai/insights";
 import { PredictionCard } from "@/components/PredictionCard";
+import { FollowButton } from "@/components/FollowButton";
 import { MatchFacts } from "@/components/MatchFacts";
 import { WhereToWatch } from "@/components/WhereToWatch";
 import { GroupContext } from "@/components/GroupContext";
@@ -86,6 +87,17 @@ export default async function MatchPage({
 
       <div className="mt-2">
         <LiveScoreClient initial={match} />
+      </div>
+
+      <div className="px-4 mt-3 flex items-center justify-center gap-3 text-[11px] text-ink-muted">
+        <span className="flex items-center gap-1.5">
+          {match.home.short}
+          <FollowButton team={match.home.name} size="sm" />
+        </span>
+        <span className="flex items-center gap-1.5">
+          {match.away.short}
+          <FollowButton team={match.away.name} size="sm" />
+        </span>
       </div>
 
       <MatchInsights slug={match.slug} stateKey={insightsStateHash(match)} />
