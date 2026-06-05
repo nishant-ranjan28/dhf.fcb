@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionTitle } from "@/components/SectionTitle";
 import { NewsCard } from "@/components/NewsCard";
 import { MatchCard } from "@/components/MatchCard";
+import { MatchList } from "@/components/MatchList";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { getMatchesByCompetition } from "@/lib/football";
@@ -90,22 +91,14 @@ export default async function BarcaPage({
       {upcoming.length > 0 && (
         <>
           <SectionTitle title="Upcoming" />
-          <div className="px-4 space-y-2">
-            {upcoming.map((m) => (
-              <MatchCard key={m.slug} match={m} />
-            ))}
-          </div>
+          <MatchList matches={upcoming} />
         </>
       )}
 
       {recent.length > 0 && (
         <>
           <SectionTitle title="Recent results" />
-          <div className="px-4 space-y-2 pb-2">
-            {recent.map((m) => (
-              <MatchCard key={m.slug} match={m} />
-            ))}
-          </div>
+          <MatchList matches={recent} />
         </>
       )}
     </>

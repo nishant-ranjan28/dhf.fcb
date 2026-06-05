@@ -1,5 +1,6 @@
 import { SectionTitle } from "@/components/SectionTitle";
 import { MatchCard } from "@/components/MatchCard";
+import { MatchList } from "@/components/MatchList";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { getAllMatches } from "@/lib/football";
 
@@ -34,22 +35,14 @@ export default async function LivePage() {
       {upcoming.length > 0 && (
         <>
           <SectionTitle title="Coming up" />
-          <div className="px-4 space-y-2">
-            {upcoming.map((m) => (
-              <MatchCard key={m.slug} match={m} />
-            ))}
-          </div>
+          <MatchList matches={upcoming} />
         </>
       )}
 
       {finished.length > 0 && (
         <>
           <SectionTitle title="Finished" />
-          <div className="px-4 space-y-2 pb-2">
-            {finished.map((m) => (
-              <MatchCard key={m.slug} match={m} />
-            ))}
-          </div>
+          <MatchList matches={finished} />
         </>
       )}
     </>
