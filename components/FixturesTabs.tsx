@@ -23,8 +23,18 @@ export function FixturesTabs({
   const tabs = allTabs.filter((t) => t.matches.length > 0);
 
   const [active, setActive] = useState<TabKey>(tabs[0]?.key ?? "upcoming");
+  const [showAll, setShowAll] = useState(false);
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
   if (!current) return null;
+
+  // Cap the list so a 100-fixture tab doesn't bury the rest of the page.
+  const VISIBLE = 6;
+  const shown = showAll ? current.matches : current.matches.slice(0, VISIBLE);
+
+  function select(key: TabKey) {
+    setActive(key);
+    setShowAll(false);
+  }
 
   return (
     <div>
@@ -35,7 +45,7 @@ export function FixturesTabs({
             <button
               key={t.key}
               type="button"
-              onClick={() => setActive(t.key)}
+              onClick={() => select(t.key)}
               className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                 isActive
                   ? "bg-white text-ink"
@@ -53,10 +63,22 @@ export function FixturesTabs({
       </div>
 
       <div className="px-4 space-y-2">
-        {current.matches.map((m) => (
+        {shown.map((m) => (
           <MatchCard key={m.slug} match={m} />
         ))}
       </div>
+
+      {current.matches.length > VISIBLE && (
+        <div className="px-4 mt-3">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="w-full rounded-xl border border-ink-line bg-ink-soft py-2.5 text-sm font-semibold text-ink-muted hover:text-white transition"
+          >
+            {showAll ? "Show less" : `Show all ${current.matches.length}`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
