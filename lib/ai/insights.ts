@@ -13,6 +13,12 @@ const REDIS_TOKEN =
 // set of events changes — but NOT every minute (the clock is excluded).
 const TTL_SECONDS = 60 * 60; // 1h; state changes bust the key sooner anyway.
 
+// Daily counter of fresh (uncached) AI generations — surfaced on the admin
+// dashboard so the AI spend/volume is visible.
+const COUNT_KEY = (ymd: string) => `ai:insights:count:${ymd}`;
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const memoryCounts = new Map<string, number>();
+
 /** Fingerprint of the match facts that should trigger a fresh generation. */
 export function insightsStateHash(match: Match): string {
   return `${match.status}:${match.scoreHome}-${match.scoreAway}:${match.events.length}`;
@@ -55,13 +61,27 @@ export async function getMatchInsights(match: Match): Promise<MatchInsights | nu
 
   if (client) {
     await client.set(key, fresh, { ex: TTL_SECONDS }).catch(() => {});
+    const ck = COUNT_KEY(ymd(new Date()));
+    const n = await client.incr(ck).catch(() => 0);
+    if (n === 1) await client.expire(ck, 60 * 60 * 24 * 30).catch(() => {});
   } else {
     memory.set(key, { value: fresh, expires: Date.now() + TTL_SECONDS * 1000 });
+    const k = ymd(new Date());
+    memoryCounts.set(k, (memoryCounts.get(k) ?? 0) + 1);
   }
   return fresh;
+}
+
+/** Number of fresh AI insight generations recorded today. */
+export async function insightsCountToday(): Promise<number> {
+  const client = getRedis();
+  const k = ymd(new Date());
+  if (client) return Number(await client.get<number>(COUNT_KEY(k)).catch(() => 0)) || 0;
+  return memoryCounts.get(k) ?? 0;
 }
 
 export function _resetInsightsCache(): void {
   redis = undefined;
   memory.clear();
+  memoryCounts.clear();
 }
