@@ -7,6 +7,12 @@ import { Footer } from "@/components/Footer";
 import { CookieConsent } from "@/components/CookieConsent";
 import { env } from "@/lib/env";
 
+// AdSense site verification. The `google-adsense-account` meta is Google's
+// cookie-free ownership-verification method, so review/verification doesn't
+// depend on the consent-gated ad loader. Only emitted once the publisher id
+// is configured.
+const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim();
+
 export const metadata: Metadata = {
   metadataBase: new URL(env.siteUrl),
   title: {
@@ -20,6 +26,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "BarcaPulse",
   },
+  ...(adsenseClient ? { other: { "google-adsense-account": adsenseClient } } : {}),
 };
 
 export const viewport: Viewport = {
