@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CONSENT_ACCEPTED_EVENT, CONSENT_KEY as KEY } from "@/lib/consent";
 
-const KEY = "cookie_consent";
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
 type Consent = "accepted" | "declined" | "unset";
@@ -61,6 +61,9 @@ export function CookieConsent() {
     }
     setConsent("accepted");
     loadAdSense();
+    // Same-tab signal for consent-gated ad components (e.g. AdsterraBanner);
+    // cross-tab is covered by the native "storage" event.
+    window.dispatchEvent(new Event(CONSENT_ACCEPTED_EVENT));
   }
 
   function decline() {
@@ -85,7 +88,8 @@ export function CookieConsent() {
       <div className="bg-ink-soft border border-ink-line rounded-xl p-3 shadow-lg backdrop-blur">
         <p className="text-[12px] text-white leading-relaxed">
           We use essential cookies for the site to work, and (with your consent) cookies
-          from Google AdSense for advertising and Disqus for comments. See our{" "}
+          from our advertising partners (Google AdSense, Adsterra) and Disqus for
+          comments. See our{" "}
           <Link href="/privacy" className="text-barca-gold underline">
             Privacy Policy
           </Link>
