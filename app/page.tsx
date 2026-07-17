@@ -42,7 +42,9 @@ export default async function HomePage() {
 
       <TelegramCTA />
 
-      <AdSlot size="320x100" />
+      {/* 300x250 (not 320x100): Adsterra has no 320x100 banner; both networks
+          fill 300x250, so one placement key covers every mid-content slot. */}
+      <AdSlot size="300x250" />
 
       <SectionTitle title="Barca Feed" href="/barca" accent="blue" />
       <div className="px-4 space-y-2">

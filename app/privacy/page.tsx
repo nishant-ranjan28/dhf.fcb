@@ -76,7 +76,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Optional / set by third parties only after you consent</strong>:{" "}
-          Google AdSense (for advertising), Disqus (for comments) — see Section 4.
+          our advertising partners (Google AdSense, Adsterra) and Disqus (for
+          comments) — see Section 4.
         </li>
         <li>
           <strong>Browser session storage</strong>:{" "}
@@ -117,6 +118,20 @@ export default function PrivacyPage() {
             Ads Settings
           </a>{" "}
           to manage your preferences. Ad scripts are not loaded until you accept
+          cookies via our consent banner.
+        </li>
+        <li>
+          <strong>Adsterra</strong> — serves banner advertisements on some pages.
+          Adsterra may use cookies or similar identifiers for frequency capping
+          and fraud prevention. See Adsterra&apos;s{" "}
+          <a
+            href="https://adsterra.com/privacy-policy/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Privacy Policy
+          </a>
+          . As with AdSense, Adsterra scripts are not loaded until you accept
           cookies via our consent banner.
         </li>
         <li>

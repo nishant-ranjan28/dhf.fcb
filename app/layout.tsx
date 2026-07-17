@@ -54,9 +54,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </main>
         <BottomNav />
         <Analytics />
-        {/* CookieConsent gates the AdSense loader on user consent. The script
-            is only injected after Accept; before that, no third-party cookies
-            are set, satisfying GDPR/UK PECR. */}
+        {/* CookieConsent gates the ad loaders (AdSense, Adsterra) on user
+            consent. Scripts are only injected after Accept; before that, no
+            third-party cookies are set, satisfying GDPR/UK PECR. */}
         <CookieConsent />
       </body>
     </html>

@@ -1,8 +1,11 @@
 // Ads scaffold. When NEXT_PUBLIC_ADSENSE_CLIENT (and the matching slot env)
 // are set, AdSlot renders Google AdSense's <ins> block and the layout-mounted
-// adsbygoogle.js loader handles the rest. Until then, a dashed placeholder
-// box with the right dimensions reserves the layout space — no CLS jump
-// when ads activate later.
+// adsbygoogle.js loader handles the rest. Otherwise, if an Adsterra placement
+// key is set for the size, the consent-gated AdsterraBanner renders instead.
+// Until either is configured, a dashed placeholder box with the right
+// dimensions reserves the layout space — no CLS jump when ads activate later.
+
+import { AdsterraBanner } from "@/components/AdsterraBanner";
 
 type AdSize = "300x250" | "320x100" | "320x50";
 
@@ -10,6 +13,12 @@ const SLOT_ENV: Record<AdSize, string | undefined> = {
   "300x250": process.env.NEXT_PUBLIC_ADSENSE_SLOT_300x250,
   "320x100": process.env.NEXT_PUBLIC_ADSENSE_SLOT_320x100,
   "320x50": process.env.NEXT_PUBLIC_ADSENSE_SLOT_320x50,
+};
+
+const ADSTERRA_ENV: Record<AdSize, string | undefined> = {
+  "300x250": process.env.NEXT_PUBLIC_ADSTERRA_KEY_300x250,
+  "320x100": process.env.NEXT_PUBLIC_ADSTERRA_KEY_320x100,
+  "320x50": process.env.NEXT_PUBLIC_ADSTERRA_KEY_320x50,
 };
 
 const DIMS: Record<AdSize, { h: string; w: string; hPx: number; wPx: number }> = {
@@ -49,6 +58,15 @@ export function AdSlot({
     );
   }
 
+  const adsterraKey = ADSTERRA_ENV[size];
+  if (adsterraKey) {
+    return (
+      <div className={`mx-auto my-3 ${dims.w} ${dims.h}`}>
+        <AdsterraBanner adKey={adsterraKey} width={dims.wPx} height={dims.hPx} />
+      </div>
+    );
+  }
+
   return (
     <div
       data-ad-slot={size}
@@ -70,6 +88,15 @@ export function StickyBottomAd() {
           data-ad-slot={SLOT_ENV["320x50"]}
           data-ad-format="auto"
         />
+      </div>
+    );
+  }
+
+  const adsterraKey = ADSTERRA_ENV["320x50"];
+  if (adsterraKey) {
+    return (
+      <div className="fixed bottom-14 inset-x-0 z-20 mx-auto max-w-screen h-[50px] flex items-center justify-center bg-ink">
+        <AdsterraBanner adKey={adsterraKey} width={320} height={50} />
       </div>
     );
   }
