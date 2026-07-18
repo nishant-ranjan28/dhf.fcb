@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { LeaderboardAd, SideRail } from "@/components/AdSlot";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
 import { CookieConsent } from "@/components/CookieConsent";
@@ -51,10 +52,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         )}
         <Header />
-        <main className="mx-auto max-w-screen pb-20">
-          {children}
-          <Footer />
-        </main>
+        {/* Desktop-only banner under the header; renders nothing on mobile. */}
+        <LeaderboardAd />
+        {/* Rails flank the 640px column from xl up; below xl the flex row
+            degenerates to the centered column, identical to the old layout. */}
+        <div className="flex justify-center xl:gap-6 xl:px-4">
+          <SideRail side="left" />
+          <main className="w-full max-w-screen pb-20">
+            {children}
+            <Footer />
+          </main>
+          <SideRail side="right" />
+        </div>
         <BottomNav />
         <Analytics />
         {/* CookieConsent gates the ad loaders (AdSense, Adsterra) on user
