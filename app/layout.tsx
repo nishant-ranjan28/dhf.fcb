@@ -26,6 +26,9 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "BarcaPulse",
   },
+  alternates: {
+    types: { "application/rss+xml": "/rss.xml" },
+  },
   ...(adsenseClient ? { other: { "google-adsense-account": adsenseClient } } : {}),
 };
 

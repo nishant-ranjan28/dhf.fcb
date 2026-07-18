@@ -43,4 +43,5 @@ export type PipelineResult =
 export interface AnnounceResults {
   telegram: "ok" | "err" | "skipped";
   facebook: "ok" | "err" | "skipped";
+  indexnow: "ok" | "err" | "skipped";
 }

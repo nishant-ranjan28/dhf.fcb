@@ -47,7 +47,7 @@ function deps(over: Partial<Parameters<typeof runRecapPipeline>[0]> = {}) {
   return {
     getMatches: async () => [ftMatch("mexico-vs-south-africa")],
     generate: async () => goodDraft,
-    announceFn: async () => ({ telegram: "ok" as const, facebook: "skipped" as const }),
+    announceFn: async () => ({ telegram: "ok" as const, facebook: "skipped" as const, indexnow: "skipped" as const }),
     siteUrl: "https://example.com",
     now: Date.now(),
     ...over,
