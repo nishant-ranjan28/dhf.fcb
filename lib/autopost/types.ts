@@ -44,4 +44,6 @@ export interface AnnounceResults {
   telegram: "ok" | "err" | "skipped";
   facebook: "ok" | "err" | "skipped";
   indexnow: "ok" | "err" | "skipped";
+  x: "ok" | "err" | "skipped";
+  bluesky: "ok" | "err" | "skipped";
 }
