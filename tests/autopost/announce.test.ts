@@ -19,12 +19,13 @@ beforeEach(() => {
   delete process.env.TELEGRAM_CHANNEL_ID;
   delete process.env.FACEBOOK_PAGE_ID;
   delete process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  delete process.env.INDEXNOW_KEY;
 });
 
 describe("announce", () => {
   it("returns 'skipped' for both when nothing is configured", async () => {
     const r = await announce(POST, "https://site.com");
-    expect(r).toEqual({ telegram: "skipped", facebook: "skipped" });
+    expect(r).toEqual({ telegram: "skipped", facebook: "skipped", indexnow: "skipped" });
   });
 
   it("returns 'ok' for both when both succeed", async () => {
@@ -34,7 +35,7 @@ describe("announce", () => {
     process.env.FACEBOOK_PAGE_ACCESS_TOKEN = "fb";
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
     const r = await announce(POST, "https://site.com");
-    expect(r).toEqual({ telegram: "ok", facebook: "ok" });
+    expect(r).toEqual({ telegram: "ok", facebook: "ok", indexnow: "skipped" });
   });
 
   it("returns 'err' for the failing platform without affecting the other", async () => {
@@ -52,6 +53,19 @@ describe("announce", () => {
       }),
     );
     const r = await announce(POST, "https://site.com");
-    expect(r).toEqual({ telegram: "ok", facebook: "err" });
+    expect(r).toEqual({ telegram: "ok", facebook: "err", indexnow: "skipped" });
+  });
+
+  it("pings IndexNow with the post URL when configured", async () => {
+    process.env.INDEXNOW_KEY = "abc123";
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await announce(POST, "https://site.com");
+    expect(r).toEqual({ telegram: "skipped", facebook: "skipped", indexnow: "ok" });
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const call = calls.find((c) => String(c[0]).includes("indexnow"));
+    expect(call).toBeDefined();
+    const body = JSON.parse(String(call![1].body));
+    expect(body.urlList).toEqual(["https://site.com/blog/yamal-deal"]);
   });
 });
