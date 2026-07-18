@@ -1,34 +1,61 @@
-// Ads scaffold. When NEXT_PUBLIC_ADSENSE_CLIENT (and the matching slot env)
-// are set, AdSlot renders Google AdSense's <ins> block and the layout-mounted
-// adsbygoogle.js loader handles the rest. Otherwise, if an Adsterra placement
-// key is set for the size, the consent-gated AdsterraBanner renders instead.
-// Until either is configured, a dashed placeholder box with the right
-// dimensions reserves the layout space — no CLS jump when ads activate later.
+// Ads scaffold. Per size, AdSlot renders the first configured network:
+// AdSense (<ins> block + layout-mounted loader) → Adsterra (consent-gated
+// iframe) → dashed placeholder that reserves the layout space so there's no
+// CLS jump when ads activate later.
+//
+// Desktop-width formats (468x60, 728x90) are hidden below md — they'd
+// overflow the mobile-first single-column layout.
 
 import { AdsterraBanner } from "@/components/AdsterraBanner";
 
-type AdSize = "300x250" | "320x100" | "320x50";
+type AdSize =
+  | "300x250"
+  | "320x100"
+  | "320x50"
+  | "160x300"
+  | "160x600"
+  | "468x60"
+  | "728x90";
 
 const SLOT_ENV: Record<AdSize, string | undefined> = {
   "300x250": process.env.NEXT_PUBLIC_ADSENSE_SLOT_300x250,
   "320x100": process.env.NEXT_PUBLIC_ADSENSE_SLOT_320x100,
   "320x50": process.env.NEXT_PUBLIC_ADSENSE_SLOT_320x50,
+  "160x300": process.env.NEXT_PUBLIC_ADSENSE_SLOT_160x300,
+  "160x600": process.env.NEXT_PUBLIC_ADSENSE_SLOT_160x600,
+  "468x60": process.env.NEXT_PUBLIC_ADSENSE_SLOT_468x60,
+  "728x90": process.env.NEXT_PUBLIC_ADSENSE_SLOT_728x90,
 };
 
 const ADSTERRA_ENV: Record<AdSize, string | undefined> = {
   "300x250": process.env.NEXT_PUBLIC_ADSTERRA_KEY_300x250,
   "320x100": process.env.NEXT_PUBLIC_ADSTERRA_KEY_320x100,
   "320x50": process.env.NEXT_PUBLIC_ADSTERRA_KEY_320x50,
+  "160x300": process.env.NEXT_PUBLIC_ADSTERRA_KEY_160x300,
+  "160x600": process.env.NEXT_PUBLIC_ADSTERRA_KEY_160x600,
+  "468x60": process.env.NEXT_PUBLIC_ADSTERRA_KEY_468x60,
+  "728x90": process.env.NEXT_PUBLIC_ADSTERRA_KEY_728x90,
 };
 
 const DIMS: Record<AdSize, { h: string; w: string; hPx: number; wPx: number }> = {
   "300x250": { h: "h-[250px]", w: "w-[300px]", hPx: 250, wPx: 300 },
   "320x100": { h: "h-[100px]", w: "w-[320px]", hPx: 100, wPx: 320 },
   "320x50": { h: "h-[50px]", w: "w-[320px]", hPx: 50, wPx: 320 },
+  "160x300": { h: "h-[300px]", w: "w-[160px]", hPx: 300, wPx: 160 },
+  "160x600": { h: "h-[600px]", w: "w-[160px]", hPx: 600, wPx: 160 },
+  "468x60": { h: "h-[60px]", w: "w-[468px]", hPx: 60, wPx: 468 },
+  "728x90": { h: "h-[90px]", w: "w-[728px]", hPx: 90, wPx: 728 },
 };
+
+// Wider than any phone viewport — render only from md up.
+const DESKTOP_ONLY: ReadonlySet<AdSize> = new Set(["468x60", "728x90"]);
 
 function adsenseEnabled(size: AdSize): boolean {
   return Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT && SLOT_ENV[size]);
+}
+
+function visibility(size: AdSize): string {
+  return DESKTOP_ONLY.has(size) ? "hidden md:block" : "";
 }
 
 export function AdSlot({
@@ -42,7 +69,7 @@ export function AdSlot({
 
   if (adsenseEnabled(size)) {
     return (
-      <div className={`mx-auto my-3 ${dims.w} ${dims.h}`}>
+      <div className={`${visibility(size)} mx-auto my-3 ${dims.w} ${dims.h}`}>
         <ins
           className="adsbygoogle"
           style={{
@@ -61,7 +88,7 @@ export function AdSlot({
   const adsterraKey = ADSTERRA_ENV[size];
   if (adsterraKey) {
     return (
-      <div className={`mx-auto my-3 ${dims.w} ${dims.h}`}>
+      <div className={`${visibility(size)} mx-auto my-3 ${dims.w} ${dims.h}`}>
         <AdsterraBanner adKey={adsterraKey} width={dims.wPx} height={dims.hPx} />
       </div>
     );
@@ -70,7 +97,7 @@ export function AdSlot({
   return (
     <div
       data-ad-slot={size}
-      className={`mx-4 my-3 ${dims.h} bg-ink-soft border border-dashed border-ink-line rounded-lg flex items-center justify-center text-ink-muted text-xs uppercase tracking-wide`}
+      className={`${visibility(size)} mx-4 my-3 ${dims.h} bg-ink-soft border border-dashed border-ink-line rounded-lg flex items-center justify-center text-ink-muted text-xs uppercase tracking-wide`}
     >
       {label} · {size}
     </div>

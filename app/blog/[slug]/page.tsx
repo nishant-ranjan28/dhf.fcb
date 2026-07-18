@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
+import { NativeBanner } from "@/components/NativeBanner";
 import { ShareButtons } from "@/components/ShareButtons";
 import { ViewBeacon } from "@/components/ViewBeacon";
 import { PostNavigation } from "@/components/PostNavigation";
@@ -138,6 +139,8 @@ export default async function BlogPostPage({
           className="prose-blog mt-2 text-[15px] text-white leading-relaxed"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+        <AdSlot size="300x250" />
+
         <div className="mt-6">
           <ShareButtons url={shareUrl} title={post.title} excerpt={post.excerpt} tags={post.tags} />
         </div>
@@ -145,6 +148,8 @@ export default async function BlogPostPage({
         <PostNavigation newer={newer} older={older} />
 
         <RelatedPosts posts={related} />
+
+        <NativeBanner />
 
         <DisqusComments
           identifier={post.slug}
