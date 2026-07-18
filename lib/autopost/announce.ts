@@ -32,7 +32,12 @@ export async function announce(post: BlogPost, siteUrl: string): Promise<Announc
       : skipped,
     isXConfigured() ? postToX({ text: formatTweet(post.title, url) }).then(report("x")) : skipped,
     isBlueskyConfigured()
-      ? postToBluesky({ title: post.title, url }).then(report("bluesky"))
+      ? postToBluesky({
+          title: post.title,
+          url,
+          description: post.excerpt,
+          imageUrl: post.coverImage,
+        }).then(report("bluesky"))
       : skipped,
   ]);
   return { telegram: tg, facebook: fb, indexnow: inow, x, bluesky: bsky };
