@@ -39,9 +39,40 @@ async function httpError(res: Response): Promise<string> {
   return `HTTP ${res.status}: ${body.replace(/\s+/g, " ").slice(0, 200)}`;
 }
 
+// Bluesky rejects blobs over ~1MB; oversized covers just skip the thumb.
+const MAX_THUMB_BYTES = 1_000_000;
+
+/** Fetch the cover image and upload it as a blob for the link-card thumb.
+ *  Best-effort: any failure (fetch error, too large, upload rejected) means
+ *  the card ships without a thumbnail, never a failed post. */
+async function uploadThumb(imageUrl: string, jwt: string): Promise<unknown | undefined> {
+  try {
+    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) });
+    if (!imgRes.ok) return undefined;
+    const buf = await imgRes.arrayBuffer();
+    if (buf.byteLength === 0 || buf.byteLength > MAX_THUMB_BYTES) return undefined;
+    const upRes = await fetch(`${SERVICE}/xrpc/com.atproto.repo.uploadBlob`, {
+      method: "POST",
+      headers: {
+        "content-type": imgRes.headers.get("content-type") ?? "image/jpeg",
+        authorization: `Bearer ${jwt}`,
+      },
+      body: buf,
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!upRes.ok) return undefined;
+    const up = (await upRes.json()) as { blob?: unknown };
+    return up.blob;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function postToBluesky(opts: {
   title: string;
   url: string;
+  description?: string;
+  imageUrl?: string;
 }): Promise<BlueskyResult> {
   const identifier = process.env.BLUESKY_IDENTIFIER?.trim();
   const password = process.env.BLUESKY_APP_PASSWORD?.trim();
@@ -53,6 +84,8 @@ export async function postToBluesky(opts: {
     });
     if (!sessRes.ok) return { ok: false, error: await httpError(sessRes) };
     const sess = (await sessRes.json()) as { accessJwt: string; did: string };
+
+    const thumb = opts.imageUrl ? await uploadThumb(opts.imageUrl, sess.accessJwt) : undefined;
 
     const budget = POST_LIMIT - opts.url.length - 2; // 2 = "\n\n"
     const title =
@@ -77,6 +110,17 @@ export async function postToBluesky(opts: {
               features: [{ $type: "app.bsky.richtext.facet#link", uri: opts.url }],
             },
           ],
+          // External embed = the link-preview card. Bluesky never generates
+          // cards from bare URLs; the client must attach one explicitly.
+          embed: {
+            $type: "app.bsky.embed.external",
+            external: {
+              uri: opts.url,
+              title: opts.title,
+              description: opts.description ?? "",
+              ...(thumb ? { thumb } : {}),
+            },
+          },
           createdAt: new Date().toISOString(),
         },
       },
