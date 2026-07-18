@@ -94,6 +94,11 @@ export function AdSlot({
     );
   }
 
+  // Unconfigured slot: dashed placeholder in dev (shows where ads will live),
+  // nothing in production (a "coming soon" box on a live page is just noise;
+  // no CLS concern because an unconfigured slot never loads anything).
+  if (process.env.NODE_ENV === "production") return null;
+
   return (
     <div
       data-ad-slot={size}
@@ -101,6 +106,36 @@ export function AdSlot({
     >
       {label} · {size}
     </div>
+  );
+}
+
+/** Header-adjacent horizontal banner: 728x90 on lg+, 468x60 on md–lg,
+ *  nothing on mobile (mobile has the sticky bottom + in-content slots). */
+export function LeaderboardAd() {
+  return (
+    <>
+      <div className="hidden md:block lg:hidden">
+        <AdSlot size="468x60" />
+      </div>
+      <div className="hidden lg:block">
+        <AdSlot size="728x90" />
+      </div>
+    </>
+  );
+}
+
+/** Desktop side rail flanking the 640px content column. xl+ only — below
+ *  that there's no horizontal room. Sticky so the skyscraper stays in view
+ *  while the column scrolls. */
+export function SideRail({ side }: { side: "left" | "right" }) {
+  return (
+    <aside
+      aria-label="Advertisement rail"
+      className="hidden xl:flex flex-col gap-4 sticky top-16 self-start w-[160px] shrink-0"
+    >
+      <AdSlot size="160x600" />
+      {side === "right" && <AdSlot size="160x300" />}
+    </aside>
   );
 }
 
@@ -127,6 +162,8 @@ export function StickyBottomAd() {
       </div>
     );
   }
+
+  if (process.env.NODE_ENV === "production") return null;
 
   return (
     <div
