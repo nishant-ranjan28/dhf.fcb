@@ -1,6 +1,6 @@
 # Auto-post — operator runbook
 
-A GitHub Actions cron triggers `POST /api/cron/auto-post` every hour. The
+A GitHub Actions cron triggers `POST /api/cron/auto-post` every 2 hours. The
 route picks an uncovered news headline, asks Groq to
 write an original post, runs four quality gates, persists the post, then
 pushes to Telegram and the Facebook Page.
@@ -21,7 +21,7 @@ pushes to Telegram and the Facebook Page.
 1. Repo → Settings → Secrets and variables → Actions
 2. New repository secret: `CRON_TOKEN` (same value as Vercel)
 3. The workflow at `.github/workflows/auto-post.yml` runs on `cron: "0 * * * *"`
-4. To test immediately: Actions → "Hourly auto-post" → Run workflow
+4. To test immediately: Actions → "Auto-post (throttled)" → Run workflow
 
 ## Kill switch
 
@@ -50,7 +50,7 @@ Calendar a reminder for ~50 days after each rotation.
 - **Per-run logs:** Vercel → Logs, filter `kind:"autopost"`. Each run emits one
   JSON line with `status`, `reason`, `durationMs`, `slug` if published.
 - **Dashboard:** `/admin/autopost` shows the last 7 days of counters.
-- **GitHub Actions:** Actions tab → "Hourly auto-post" — green/red per hour.
+- **GitHub Actions:** Actions tab → "Auto-post (throttled)" — green/red every 2 hours.
 
 ## Known limitations
 
@@ -58,19 +58,18 @@ Calendar a reminder for ~50 days after each rotation.
   concurrent runs (e.g. GH Actions cron + a manual `workflow_dispatch` firing
   in the same second) can lose an increment. The day-cap is enforced upstream
   so this never produces over-publishing in practice, but the dashboard
-  counts may be off by 1 in those edge cases. Acceptable for v1 — the cron
-  is hourly and the route is sequential per invocation.
+   counts may be off by 1 in those edge cases. Acceptable for v1 — the cron
+   runs every 2 hours and the route is sequential per invocation.
 
-- **Provider failures are silent.** `/api/cron/auto-post` swallows Gemini/Groq
+- **Provider failures are silent.** `/api/cron/auto-post` swallows Groq
   errors into a generic `all_providers_failed` skip reason; consult the
-  per-run `console.warn` lines in Vercel logs (`[autopost] gemini http 429`
-  etc.) to see which provider failed and why.
+  per-run `console.warn` lines in Vercel logs (`[autopost] groq http 429`
+  etc.) to see why the call failed.
 
-- **`maxDuration` is 90s on the cron route**, sized for the dual-provider
-  fallback worst case (two providers at 30s each + pipeline overhead). On
-  Vercel Hobby plans this is silently clamped to 60s — if you're on Hobby and
-  start seeing timeouts during Groq fallback, upgrade to Pro or lower
-  per-provider timeouts in `lib/autopost/generate.ts`.
+- **`maxDuration` is 90s on the cron route**, sized for a slow Groq call
+  (30s) + pipeline overhead. On Vercel Hobby plans this is silently
+  clamped to 60s — if you're on Hobby and start seeing timeouts, upgrade
+  to Pro or lower the provider timeout in `lib/autopost/generate.ts`.
 
 - **Attribution uses the article headline as link text** (`*Source:
   <headline>*`). We don't carry the publisher name on `NewsPost`. If you'd
@@ -81,9 +80,9 @@ Calendar a reminder for ~50 days after each rotation.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| All runs return `quota` | Gemini free tier exhausted | Wait for daily reset (midnight Pacific), or add `GROQ_API_KEY` |
+| All runs return `quota` | Groq free tier exhausted (30 RPM / 1K req/day) | Wait for daily reset, or upgrade the Groq plan |
 | All runs return `no_eligible_news` | Recent-topics set too aggressive | Wait — topics expire after 7 days |
-| All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check Gemini quota didn't switch model |
+| All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check `GROQ_MODEL` is still a served ID |
 | Facebook push always `err` | Token expired | Renew per "Facebook token renewal" above |
 | Telegram push always `err` | Bot was kicked from channel / token rotated | Re-invite bot; rotate `TELEGRAM_BOT_TOKEN` |
 | GH Actions runs not firing | Cron drifted; GitHub disabled cron on idle repo | Trigger via `workflow_dispatch` to revive |
@@ -97,6 +96,6 @@ To delete a specific bad auto-post:
 1. Admin UI → Blog → Delete on that post.
 
 To wipe the entire auto-posting feature (emergency):
-1. Disable the GH Actions workflow (Actions → "Hourly auto-post" → ⋯ → Disable workflow).
+1. Disable the GH Actions workflow (Actions → "Auto-post (throttled)" → ⋯ → Disable workflow).
 2. Set `AUTOPOST_ENABLED=false`.
 3. Revert the feature branch when ready.
