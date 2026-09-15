@@ -1,6 +1,12 @@
 import type { Match } from "@/lib/types";
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+// Google shut down `gemini-2.0-flash` on 2026-06-01. Current fast-tier
+// replacement is `gemini-3.5-flash` (GA, no shutdown announced —
+// `gemini-2.5-flash` itself retires 2026-10-16).
+// Overridable via GEMINI_MODEL env without a code change.
+function resolveGeminiModel(): string {
+  return process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash";
+}
 // Groq retired `llama-3.3-70b-versatile` on 2026-08-16 (404 for free/dev tier).
 // Free-tier pick: `openai/gpt-oss-20b` (same GROQ_API_KEY, production model,
 // ~1000 tok/s, half the price of the 120b). Overridable via GROQ_MODEL env.
@@ -108,7 +114,7 @@ type Attempt = { ok: true; draft: ParsedDraft } | { ok: false; quota?: true };
 
 async function tryGemini(prompt: string, key: string): Promise<Attempt> {
   try {
-    const res = await fetch(`${GEMINI_URL(GEMINI_MODEL)}?key=${encodeURIComponent(key)}`, {
+    const res = await fetch(`${GEMINI_URL(resolveGeminiModel())}?key=${encodeURIComponent(key)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
