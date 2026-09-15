@@ -1,7 +1,12 @@
 import type { SelectedNewsItem, DraftPost } from "./types";
 
 const GEMINI_MODEL = "gemini-2.0-flash";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Groq retired `llama-3.3-70b-versatile` on 2026-08-16 (404 for free/dev tier).
+// Groq's recommended production replacement is `openai/gpt-oss-120b`.
+// Overridable via GROQ_MODEL env without a code change.
+function resolveGroqModel(): string {
+  return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+}
 
 const GEMINI_URL = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -107,7 +112,7 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
         authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: resolveGroqModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
         max_tokens: 2048,

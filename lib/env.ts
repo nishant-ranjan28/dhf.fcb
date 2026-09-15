@@ -64,7 +64,7 @@ function build(): AppEnv {
     autopostEnabled: process.env.AUTOPOST_ENABLED?.trim() === "true",
     recapEnabled: process.env.RECAP_ENABLED?.trim() === "true",
     groqApiKey: process.env.GROQ_API_KEY?.trim() || undefined,
-    groqModel: process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile",
+    groqModel: process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b",
   };
 }
 
