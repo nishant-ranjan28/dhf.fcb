@@ -2,10 +2,10 @@ import type { SelectedNewsItem, DraftPost } from "./types";
 
 const GEMINI_MODEL = "gemini-2.0-flash";
 // Groq retired `llama-3.3-70b-versatile` on 2026-08-16 (404 for free/dev tier).
-// Groq's recommended production replacement is `openai/gpt-oss-120b`.
-// Overridable via GROQ_MODEL env without a code change.
+// Free-tier pick: `openai/gpt-oss-20b` (same GROQ_API_KEY, production model,
+// ~1000 tok/s, half the price of the 120b). Overridable via GROQ_MODEL env.
 function resolveGroqModel(): string {
-  return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+  return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
 }
 
 const GEMINI_URL = (model: string) =>
