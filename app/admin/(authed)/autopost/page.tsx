@@ -8,9 +8,9 @@ export default async function AutopostDashboard() {
     published: acc.published + d.published,
     generated: acc.generated + d.generated,
     errors: acc.errors + d.errors,
-    by_gemini: acc.by_gemini + d.by_gemini,
     by_groq: acc.by_groq + d.by_groq,
-  }), { published: 0, generated: 0, errors: 0, by_gemini: 0, by_groq: 0 });
+    by_openrouter: acc.by_openrouter + (d.by_openrouter ?? 0),
+  }), { published: 0, generated: 0, errors: 0, by_groq: 0, by_openrouter: 0 });
 
   return (
     <div className="px-3 py-4 text-white">
@@ -19,8 +19,8 @@ export default async function AutopostDashboard() {
       <section className="grid grid-cols-2 gap-2 mb-6">
         <Tile label="Published" value={total.published} />
         <Tile label="Generated" value={total.generated} />
-        <Tile label="Gemini" value={total.by_gemini} />
         <Tile label="Groq" value={total.by_groq} />
+        <Tile label="OpenRouter" value={total.by_openrouter} />
         <Tile label="Errors" value={total.errors} />
       </section>
 
@@ -33,8 +33,8 @@ export default async function AutopostDashboard() {
             <th className="py-1">Date</th>
             <th>Pub</th>
             <th>Gen</th>
-            <th>Gemini</th>
             <th>Groq</th>
+            <th>OpenRouter</th>
             <th>Err</th>
           </tr>
         </thead>
@@ -44,8 +44,8 @@ export default async function AutopostDashboard() {
               <td className="py-1">{d.date}</td>
               <td>{d.published}</td>
               <td>{d.generated}</td>
-              <td>{d.by_gemini}</td>
               <td>{d.by_groq}</td>
+              <td>{d.by_openrouter ?? 0}</td>
               <td>{d.errors}</td>
             </tr>
           ))}

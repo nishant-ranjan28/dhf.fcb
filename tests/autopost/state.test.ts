@@ -22,19 +22,19 @@ describe("autopostState (in-memory)", () => {
 
   it("increments published count", async () => {
     const s = autopostState();
-    await s.recordPublish({ provider: "gemini" });
     await s.recordPublish({ provider: "groq" });
+    await s.recordPublish({ provider: "openrouter" });
     expect(await s.publishedToday()).toBe(2);
   });
 
   it("tracks per-provider counters", async () => {
     const s = autopostState();
-    await s.recordPublish({ provider: "gemini" });
-    await s.recordPublish({ provider: "gemini" });
     await s.recordPublish({ provider: "groq" });
+    await s.recordPublish({ provider: "groq" });
+    await s.recordPublish({ provider: "openrouter" });
     const stats = await s.todayStats();
-    expect(stats.by_gemini).toBe(2);
-    expect(stats.by_groq).toBe(1);
+    expect(stats.by_groq).toBe(2);
+    expect(stats.by_openrouter).toBe(1);
   });
 
   it("tracks skip reasons per day", async () => {
@@ -60,14 +60,14 @@ describe("autopostState (in-memory)", () => {
 
   it("dayCapReached reflects publishedToday vs cap", async () => {
     const s = autopostState();
-    for (let i = 0; i < 24; i++) await s.recordPublish({ provider: "gemini" });
+    for (let i = 0; i < 24; i++) await s.recordPublish({ provider: "groq" });
     expect(await s.dayCapReached(24)).toBe(true);
     expect(await s.dayCapReached(25)).toBe(false);
   });
 
   it("returns last 7 days of stats", async () => {
     const s = autopostState();
-    await s.recordPublish({ provider: "gemini" });
+    await s.recordPublish({ provider: "groq" });
     const days = await s.recentStats(7);
     expect(days).toHaveLength(7);
     // The latest day should reflect the publish we just recorded.

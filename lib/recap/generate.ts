@@ -7,14 +7,20 @@ import type { Match } from "@/lib/types";
 function resolveGroqModel(): string {
   return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
 }
+// Fallback provider via OpenRouter (OpenAI-compatible). Same model ID so
+// prompt/JSON behavior matches Groq. Overridable via OPENROUTER_MODEL.
+function resolveOpenRouterModel(): string {
+  return process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-oss-20b";
+}
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export interface RecapDraft {
   title: string;
   body: string;
   excerpt: string;
   tags: string[];
-  provider: "gemini" | "groq";
+  provider: "groq" | "openrouter";
 }
 
 export type RecapResult =
@@ -131,16 +137,60 @@ async function tryGroq(prompt: string, key: string): Promise<Attempt> {
   }
 }
 
-/** Generate a match recap via Groq. Resilient: returns ok:false rather
- *  than throwing. */
+async function tryOpenRouter(prompt: string, key: string): Promise<Attempt> {
+  try {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      authorization: `Bearer ${key}`,
+      "X-Title": "BarcaPulse recap",
+    };
+    const referer = process.env.SITE_URL?.trim();
+    if (referer) headers["HTTP-Referer"] = referer;
+    const res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: resolveOpenRouterModel(),
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.6,
+        max_tokens: 1600,
+        response_format: { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      console.warn("[recap] openrouter http", res.status);
+      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
+    }
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const draft = parseJsonDraft(data.choices?.[0]?.message?.content ?? "");
+    return draft ? { ok: true, draft } : { ok: false };
+  } catch (err) {
+    console.warn("[recap] openrouter exception:", err instanceof Error ? err.message : String(err));
+    return { ok: false };
+  }
+}
+
+/** Generate a match recap via Groq with OpenRouter fallback. Resilient:
+ *  returns ok:false rather than throwing. */
 export async function generateRecap(match: Match): Promise<RecapResult> {
   const prompt = buildRecapPrompt(match);
+  let sawQuota = false;
 
   const groqKey = process.env.GROQ_API_KEY?.trim();
-  if (!groqKey) {
-    return { ok: false, reason: "all_providers_failed" };
+  if (groqKey) {
+    const r = await tryGroq(prompt, groqKey);
+    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
+    if (r.quota) sawQuota = true;
+    // Fall through to OpenRouter on quota or transient.
   }
-  const r = await tryGroq(prompt, groqKey);
-  if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
-  return { ok: false, reason: r.quota ? "quota" : "all_providers_failed" };
+
+  const orKey = process.env.OPENROUTER_API_KEY?.trim();
+  if (orKey) {
+    const r = await tryOpenRouter(prompt, orKey);
+    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "openrouter" } };
+    if (r.quota) sawQuota = true;
+  }
+
+  return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
 }

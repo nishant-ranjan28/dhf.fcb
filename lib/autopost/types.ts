@@ -18,7 +18,7 @@ export interface DraftPost extends BlogPostInput {
   excerpt: string;
   tags: string[];
   /** Which provider produced this draft. Recorded in stats. */
-  provider: "gemini" | "groq";
+  provider: "groq" | "openrouter";
 }
 
 /** Reasons a stage can short-circuit the pipeline. Stable strings — they
@@ -36,7 +36,7 @@ export type SkipReason =
   | "gate_entity_coverage";
 
 export type PipelineResult =
-  | { status: "published"; slug: string; provider: "gemini" | "groq"; announces: AnnounceResults }
+  | { status: "published"; slug: string; provider: "groq" | "openrouter"; announces: AnnounceResults }
   | { status: "skipped"; reason: SkipReason; diagnostics?: GateDiagnostics }
   | { status: "error"; error: string };
 

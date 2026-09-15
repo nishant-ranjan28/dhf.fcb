@@ -24,7 +24,7 @@ const GOOD_DRAFT = {
   body: "Lamine Yamal has signed a new contract with Barcelona. " + "word ".repeat(700),
   excerpt: "Yamal extends his Barcelona contract.",
   tags: ["barcelona", "yamal"],
-  provider: "gemini" as const,
+  provider: "groq" as const,
 };
 
 beforeEach(async () => {
@@ -122,7 +122,7 @@ describe("runPipeline", () => {
 
   it("skips when day cap is already reached", async () => {
     const s = autopostState();
-    for (let i = 0; i < 24; i++) await s.recordPublish({ provider: "gemini" });
+    for (let i = 0; i < 24; i++) await s.recordPublish({ provider: "groq" });
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),

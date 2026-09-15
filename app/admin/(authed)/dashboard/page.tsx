@@ -39,10 +39,10 @@ export default async function AdminDashboard() {
     (a, d) => ({
       published: a.published + d.published,
       errors: a.errors + d.errors,
-      by_gemini: a.by_gemini + d.by_gemini,
       by_groq: a.by_groq + d.by_groq,
+      by_openrouter: a.by_openrouter + (d.by_openrouter ?? 0),
     }),
-    { published: 0, errors: 0, by_gemini: 0, by_groq: 0 },
+    { published: 0, errors: 0, by_groq: 0, by_openrouter: 0 },
   );
 
   const polls = await Promise.all(
@@ -70,8 +70,8 @@ export default async function AdminDashboard() {
         <Tile label="News posts 7d" value={ap.published} hint={`${ap.errors} errors`} />
       </div>
       <p className="text-[11px] text-ink-muted mt-2">
-        News providers (7d): <span className="text-white">{ap.by_gemini}</span> Gemini ·{" "}
-        <span className="text-white">{ap.by_groq}</span> Groq ·{" "}
+        News providers (7d): <span className="text-white">{ap.by_groq}</span> Groq ·{" "}
+        <span className="text-white">{ap.by_openrouter}</span> OpenRouter ·{" "}
         <Link href="/admin/autopost" className="text-barca-gold hover:text-white">
           full auto-post stats →
         </Link>

@@ -8,7 +8,14 @@ function resolveGroqModel(): string {
   return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
 }
 
+// Fallback provider via OpenRouter (OpenAI-compatible). Same model ID so
+// prompt/JSON behavior matches Groq. Overridable via OPENROUTER_MODEL.
+function resolveOpenRouterModel(): string {
+  return process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-oss-20b";
+}
+
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export type GenerateResult =
   | { ok: true; draft: DraftPost }
@@ -16,14 +23,24 @@ export type GenerateResult =
 
 export async function generateDraft(item: SelectedNewsItem): Promise<GenerateResult> {
   const prompt = buildPrompt(item);
+  let sawQuota = false;
 
   const groqKey = process.env.GROQ_API_KEY?.trim();
-  if (!groqKey) {
-    return { ok: false, reason: "all_providers_failed" };
+  if (groqKey) {
+    const r = await tryGroq(prompt, groqKey);
+    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
+    if (r.quota) sawQuota = true;
+    // Fall through to OpenRouter on quota or transient.
   }
-  const r = await tryGroq(prompt, groqKey);
-  if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
-  return { ok: false, reason: r.quota ? "quota" : "all_providers_failed" };
+
+  const orKey = process.env.OPENROUTER_API_KEY?.trim();
+  if (orKey) {
+    const r = await tryOpenRouter(prompt, orKey);
+    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "openrouter" } };
+    if (r.quota) sawQuota = true;
+  }
+
+  return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
 }
 
 function buildPrompt(item: SelectedNewsItem): string {
@@ -93,6 +110,51 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
     return { ok: true, draft };
   } catch (err) {
     console.warn("[autopost] groq exception:", err instanceof Error ? err.message : String(err));
+    return { ok: false };
+  }
+}
+
+async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true }> {
+  try {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      authorization: `Bearer ${key}`,
+      "X-Title": "BarcaPulse autopost",
+    };
+    const referer = process.env.SITE_URL?.trim();
+    if (referer) headers["HTTP-Referer"] = referer;
+    const res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: resolveOpenRouterModel(),
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 2048,
+        response_format: { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      console.warn("[autopost] openrouter http", res.status);
+      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
+    }
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) {
+      console.warn("[autopost] openrouter parse failed");
+      return { ok: false };
+    }
+    const draft = parseJsonDraft(text);
+    if (!draft) {
+      console.warn("[autopost] openrouter parse failed");
+      return { ok: false };
+    }
+    return { ok: true, draft };
+  } catch (err) {
+    console.warn("[autopost] openrouter exception:", err instanceof Error ? err.message : String(err));
     return { ok: false };
   }
 }

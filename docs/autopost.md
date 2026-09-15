@@ -1,7 +1,7 @@
 # Auto-post — operator runbook
 
 A GitHub Actions cron triggers `POST /api/cron/auto-post` every 2 hours. The
-route picks an uncovered news headline, asks Groq to
+route picks an uncovered news headline, asks Groq (with OpenRouter fallback) to
 write an original post, runs four quality gates, persists the post, then
 pushes to Telegram and the Facebook Page.
 
@@ -10,6 +10,7 @@ pushes to Telegram and the Facebook Page.
 | Var | Source | Notes |
 |---|---|---|
 | `GROQ_API_KEY` | https://console.groq.com/ → API keys | Required. Free tier: 30 RPM / 1K req/day on `openai/gpt-oss-20b` |
+| `OPENROUTER_API_KEY` | https://openrouter.ai/ → API keys | Fallback when Groq fails. Model via `OPENROUTER_MODEL` (default `openai/gpt-oss-20b`) |
 | `FACEBOOK_PAGE_ID` | FB Page → About → Page ID | Numeric |
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | Meta dev portal, long-lived | ~60 day lifetime — see Renewal below |
 | `CRON_TOKEN` | `openssl rand -hex 32` | Random secret; also set as GH repo secret |

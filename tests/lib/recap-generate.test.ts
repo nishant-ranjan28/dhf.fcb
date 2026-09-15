@@ -37,6 +37,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
   delete process.env.GROQ_API_KEY;
   delete process.env.GROQ_MODEL;
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_MODEL;
 });
 
 describe("buildRecapPrompt", () => {
@@ -100,5 +102,25 @@ describe("generateRecap", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 500 })));
     const res = await generateRecap(match());
     expect(res.ok).toBe(false);
+  });
+
+  it("falls back to OpenRouter when Groq fails", async () => {
+    process.env.GROQ_API_KEY = "gsk_test";
+    process.env.OPENROUTER_API_KEY = "or_test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (u: string | URL | Request) => {
+        if (String(u).includes("api.groq.com")) {
+          return new Response("groq down", { status: 500 });
+        }
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: JSON.stringify(DRAFT) } }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }),
+    );
+    const res = await generateRecap(match());
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.draft.provider).toBe("openrouter");
   });
 });

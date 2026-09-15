@@ -20,6 +20,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
   delete process.env.GROQ_API_KEY;
   delete process.env.GROQ_MODEL;
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_MODEL;
 });
 
 function mockGroq(payload: object, status = 200) {
@@ -88,5 +90,44 @@ describe("generateDraft — Groq only", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("err", { status: 500 })));
     const r = await generateDraft(ITEM);
     expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
+  });
+
+  it("falls back to OpenRouter when Groq fails", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    process.env.OPENROUTER_API_KEY = "test-or";
+    const fetchMock = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("api.groq.com")) {
+        return new Response("groq down", { status: 500 });
+      }
+      if (u.includes("openrouter.ai")) {
+        return new Response(JSON.stringify(groqJsonPayload(VALID)), { status: 200 });
+      }
+      return new Response("not-mocked", { status: 599 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await generateDraft(ITEM);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.draft.provider).toBe("openrouter");
+  });
+
+  it("calls OpenRouter with bearer auth + the fallback model", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    process.env.OPENROUTER_API_KEY = "test-or";
+    const fetchMock = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("api.groq.com")) {
+        return new Response("groq down", { status: 500 });
+      }
+      return new Response(JSON.stringify(groqJsonPayload(VALID)), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await generateDraft(ITEM);
+    const orCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("openrouter.ai"));
+    expect(orCall).toBeDefined();
+    const [, init] = orCall as [unknown, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers.authorization).toBe("Bearer test-or");
+    expect(JSON.parse(String(init.body)).model).toBe("openai/gpt-oss-20b");
   });
 });

@@ -13,8 +13,10 @@ export interface DayStats {
   generated: number;
   published: number;
   errors: number;
+  /** Legacy counter — Gemini was removed; kept so old Redis rows still parse. */
   by_gemini: number;
   by_groq: number;
+  by_openrouter: number;
   skipped_by_reason: Record<string, number>;
 }
 
@@ -25,7 +27,7 @@ export interface AutopostState {
    *  TTL (Redis) appear as empty `DayStats`, so callers should request <= 30. */
   recentStats(days: number): Promise<DayStats[]>;
   dayCapReached(cap: number): Promise<boolean>;
-  recordPublish(opts: { provider: "gemini" | "groq" }): Promise<void>;
+  recordPublish(opts: { provider: "groq" | "openrouter" }): Promise<void>;
   recordSkip(reason: string): Promise<void>;
   recordError(): Promise<void>;
   recordGenerated(): Promise<void>;
@@ -46,6 +48,7 @@ function emptyStats(date: string): DayStats {
     errors: 0,
     by_gemini: 0,
     by_groq: 0,
+    by_openrouter: 0,
     skipped_by_reason: {},
   };
 }
@@ -82,7 +85,7 @@ function makeRedisState(client: Redis): AutopostState {
     async recordPublish({ provider }) {
       const s = await readDay(ymd());
       s.published += 1;
-      if (provider === "gemini") s.by_gemini += 1;
+      if (provider === "openrouter") s.by_openrouter = (s.by_openrouter ?? 0) + 1;
       else s.by_groq += 1;
       await writeDay(s);
     },
@@ -154,7 +157,7 @@ function makeMemoryState(): AutopostState {
     async recordPublish({ provider }) {
       const s = dayOf(ymd());
       s.published += 1;
-      if (provider === "gemini") s.by_gemini += 1;
+      if (provider === "openrouter") s.by_openrouter = (s.by_openrouter ?? 0) + 1;
       else s.by_groq += 1;
     },
     async recordSkip(reason) {
