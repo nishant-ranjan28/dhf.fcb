@@ -1,20 +1,12 @@
 import type { Match } from "@/lib/types";
 
-// Google shut down `gemini-2.0-flash` on 2026-06-01. Current fast-tier
-// replacement is `gemini-3.5-flash` (GA, no shutdown announced —
-// `gemini-2.5-flash` itself retires 2026-10-16).
-// Overridable via GEMINI_MODEL env without a code change.
-function resolveGeminiModel(): string {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash";
-}
+// Single-provider generation via GROQ_API_KEY only (Gemini removed).
 // Groq retired `llama-3.3-70b-versatile` on 2026-08-16 (404 for free/dev tier).
-// Free-tier pick: `openai/gpt-oss-20b` (same GROQ_API_KEY, production model,
-// ~1000 tok/s, half the price of the 120b). Overridable via GROQ_MODEL env.
+// Free-tier pick: `openai/gpt-oss-20b` (production model, ~1000 tok/s).
+// Overridable via GROQ_MODEL env without a code change.
 function resolveGroqModel(): string {
   return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
 }
-const GEMINI_URL = (model: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export interface RecapDraft {
@@ -112,32 +104,6 @@ function parseJsonDraft(text: string): ParsedDraft | null {
 
 type Attempt = { ok: true; draft: ParsedDraft } | { ok: false; quota?: true };
 
-async function tryGemini(prompt: string, key: string): Promise<Attempt> {
-  try {
-    const res = await fetch(`${GEMINI_URL(resolveGeminiModel())}?key=${encodeURIComponent(key)}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.6, maxOutputTokens: 1600 },
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
-      console.warn("[recap] gemini http", res.status);
-      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
-    }
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const draft = parseJsonDraft(data.candidates?.[0]?.content?.parts?.[0]?.text ?? "");
-    return draft ? { ok: true, draft } : { ok: false };
-  } catch (err) {
-    console.warn("[recap] gemini exception:", err instanceof Error ? err.message : String(err));
-    return { ok: false };
-  }
-}
-
 async function tryGroq(prompt: string, key: string): Promise<Attempt> {
   try {
     const res = await fetch(GROQ_URL, {
@@ -165,25 +131,16 @@ async function tryGroq(prompt: string, key: string): Promise<Attempt> {
   }
 }
 
-/** Generate a match recap, trying Gemini first then Groq (mirrors the news
- *  autopost generator). Resilient: returns ok:false rather than throwing. */
+/** Generate a match recap via Groq. Resilient: returns ok:false rather
+ *  than throwing. */
 export async function generateRecap(match: Match): Promise<RecapResult> {
   const prompt = buildRecapPrompt(match);
-  let sawQuota = false;
-
-  const geminiKey = process.env.GEMINI_API_KEY?.trim();
-  if (geminiKey) {
-    const r = await tryGemini(prompt, geminiKey);
-    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "gemini" } };
-    if (r.quota) sawQuota = true;
-  }
 
   const groqKey = process.env.GROQ_API_KEY?.trim();
-  if (groqKey) {
-    const r = await tryGroq(prompt, groqKey);
-    if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
-    if (r.quota) sawQuota = true;
+  if (!groqKey) {
+    return { ok: false, reason: "all_providers_failed" };
   }
-
-  return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
+  const r = await tryGroq(prompt, groqKey);
+  if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
+  return { ok: false, reason: r.quota ? "quota" : "all_providers_failed" };
 }

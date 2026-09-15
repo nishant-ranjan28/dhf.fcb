@@ -18,30 +18,17 @@ const ITEM: SelectedNewsItem = {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  process.env.GEMINI_API_KEY = "test-gemini";
   delete process.env.GROQ_API_KEY;
+  delete process.env.GROQ_MODEL;
 });
 
-function mockGemini(payload: object, status = 200) {
-  return vi.fn(async (url: string | URL | Request) => {
-    if (String(url).includes("generativelanguage.googleapis.com")) {
-      return new Response(JSON.stringify(payload), { status });
-    }
-    return new Response("not-mocked", { status: 599 });
-  });
-}
-
 function mockGroq(payload: object, status = 200) {
-  return vi.fn(async (url: string | URL | Request) => {
+  return vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
     if (String(url).includes("api.groq.com")) {
       return new Response(JSON.stringify(payload), { status });
     }
     return new Response("not-mocked", { status: 599 });
   });
-}
-
-function geminiJsonPayload(json: object): object {
-  return { candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] };
 }
 
 function groqJsonPayload(json: object): object {
@@ -55,50 +42,50 @@ const VALID = {
   tags: ["barcelona", "yamal", "transfers", "la-liga", "contract"],
 };
 
-describe("generateDraft — Gemini primary", () => {
-  it("returns a draft tagged provider=gemini on success", async () => {
-    vi.stubGlobal("fetch", mockGemini(geminiJsonPayload(VALID)));
+describe("generateDraft — Groq only", () => {
+  it("returns a draft tagged provider=groq on success", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    vi.stubGlobal("fetch", mockGroq(groqJsonPayload(VALID)));
     const r = await generateDraft(ITEM);
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.draft.provider).toBe("gemini");
+      expect(r.draft.provider).toBe("groq");
       expect(r.draft.title).toBe("Yamal commits future to Barcelona");
       expect(r.draft.tags).toContain("yamal");
     }
   });
 
-  it("returns reason:'quota' on Gemini 429 with no Groq key", async () => {
-    vi.stubGlobal("fetch", mockGemini({ error: "rate_limit" }, 429));
+  it("sends the Groq request with bearer auth + json mode", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    const fetchMock = mockGroq(groqJsonPayload(VALID));
+    vi.stubGlobal("fetch", fetchMock);
+    await generateDraft(ITEM);
+    const [, init] = fetchMock.mock.calls[0] as [unknown, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers.authorization).toBe("Bearer test-groq");
+    const body = JSON.parse(String(init.body));
+    expect(body.model).toBe("openai/gpt-oss-20b");
+    expect(body.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("returns reason:'quota' on Groq 429", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    vi.stubGlobal("fetch", mockGroq({ error: "rate_limit" }, 429));
     const r = await generateDraft(ITEM);
     expect(r).toEqual({ ok: false, reason: "quota" });
   });
-});
 
-describe("generateDraft — Groq fallback", () => {
-  beforeEach(() => {
-    process.env.GROQ_API_KEY = "test-groq";
-  });
-
-  it("falls back to Groq on Gemini 429 and succeeds", async () => {
-    const fetchMock = vi.fn(async (url: string | URL | Request) => {
-      const u = String(url);
-      if (u.includes("generativelanguage.googleapis.com")) {
-        return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429 });
-      }
-      if (u.includes("api.groq.com")) {
-        return new Response(JSON.stringify(groqJsonPayload(VALID)), { status: 200 });
-      }
-      return new Response("not-mocked", { status: 599 });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const r = await generateDraft(ITEM);
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.draft.provider).toBe("groq");
-  });
-
-  it("returns all_providers_failed when both fail", async () => {
+  it("returns all_providers_failed when no key is set", async () => {
     const fetchMock = vi.fn(async () => new Response("err", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
+    const r = await generateDraft(ITEM);
+    expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns all_providers_failed when Groq fails", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("err", { status: 500 })));
     const r = await generateDraft(ITEM);
     expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
   });

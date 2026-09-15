@@ -35,8 +35,8 @@ function match(over: Partial<Match> = {}): Match {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  delete process.env.GEMINI_API_KEY;
   delete process.env.GROQ_API_KEY;
+  delete process.env.GROQ_MODEL;
 });
 
 describe("buildRecapPrompt", () => {
