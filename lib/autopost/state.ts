@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import type { GateDiagnostics } from "./gates";
 
 const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
@@ -17,6 +18,7 @@ export interface LastRunRecord {
   durationMs: number;
   status: "published" | "skipped" | "error";
   reason?: string;
+  diagnostics?: GateDiagnostics;
   slug?: string;
   provider?: "groq" | "openrouter";
   error?: string;

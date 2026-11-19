@@ -92,9 +92,11 @@ Calendar a reminder for ~50 days after each rotation.
   outcome of the most recent run. This is the place to check whether a run
   published, skipped or errored.
 - **External cron:** cron-job.org → job history should show hourly
-  `Successful — 200 OK` with `{"status":"accepted"}`. A `Failed (timeout)` here
-  means the route itself stopped acking (e.g. a bad deploy), not that
-  generation was slow.
+  `Successful — 200 OK`. The ack body includes the **previous** run's outcome,
+  e.g. `{"status":"accepted","lastRun":{"status":"skipped","reason":"gate_entity_coverage","diagnostics":{"missingEntities":["araujo"]}}}`.
+  A `Failed (timeout)` here means the route itself stopped acking (e.g. a bad
+  deploy), not that generation was slow. A successful ack with no new post
+  means the pipeline skipped — check `lastRun.reason`, not the HTTP status.
 - **GitHub Actions (fallback):** Actions tab → "Auto-post (throttled)" — only a
   few scheduled runs/day are expected; use `workflow_dispatch` for a one-off.
 
@@ -131,6 +133,7 @@ Calendar a reminder for ~50 days after each rotation.
 | All runs return `quota` | Groq free tier exhausted (30 RPM / 1K req/day) | Wait for daily reset, or upgrade the Groq plan |
 | All runs return `no_eligible_news` | Recent-topics set too aggressive | Wait — topics expire after 7 days |
 | All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check `GROQ_MODEL` is still a served ID |
+| All runs return `gate_entity_coverage` | LLM omitted a headline name (often an accented spelling like `Araújo` vs `araujo`) | Already fixed: one automatic regeneration with the missing names called out, plus accent-insensitive matching. If it persists, check `lastRun.diagnostics.missingEntities` |
 | Facebook push always `err` | Token expired | Renew per "Facebook token renewal" above |
 | Telegram push always `err` | Bot was kicked from channel / token rotated | Re-invite bot; rotate `TELEGRAM_BOT_TOKEN` |
 | GH Actions runs not firing | GitHub drops/delays scheduled runs on idle repos | Rely on the external cron; trigger via `workflow_dispatch` for a one-off |

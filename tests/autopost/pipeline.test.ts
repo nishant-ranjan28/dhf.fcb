@@ -170,6 +170,32 @@ describe("runPipeline", () => {
     expect(r.status).toBe("published");
   });
 
+  it("retries generation once when a headline entity is missing", async () => {
+    const bad = {
+      ...GOOD_DRAFT,
+      title: "Yamal deal covered",
+      body: "Barcelona announced a new deal today. " + "word ".repeat(700),
+    };
+    const good = {
+      ...GOOD_DRAFT,
+      title: "Yamal deal covered",
+      body: "Lamine Yamal signed a new deal with Barcelona today. " + "word ".repeat(700),
+    };
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, draft: bad })
+      .mockResolvedValueOnce({ ok: true, draft: good });
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem()],
+      generate,
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      siteUrl: "https://x.com",
+    });
+    expect(r, JSON.stringify(r)).toMatchObject({ status: "published" });
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1][1]).toEqual({ missingEntities: ["yamal"] });
+  });
+
   it("propagates provider failure as all_providers_failed", async () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],

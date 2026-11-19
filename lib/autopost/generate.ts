@@ -21,8 +21,11 @@ export type GenerateResult =
   | { ok: true; draft: DraftPost }
   | { ok: false; reason: "quota" | "all_providers_failed" };
 
-export async function generateDraft(item: SelectedNewsItem): Promise<GenerateResult> {
-  const prompt = buildPrompt(item);
+export async function generateDraft(
+  item: SelectedNewsItem,
+  opts?: { missingEntities?: string[] },
+): Promise<GenerateResult> {
+  const prompt = buildPrompt(item, opts?.missingEntities);
   let sawQuota = false;
 
   const groqKey = process.env.GROQ_API_KEY?.trim();
@@ -43,7 +46,14 @@ export async function generateDraft(item: SelectedNewsItem): Promise<GenerateRes
   return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
 }
 
-function buildPrompt(item: SelectedNewsItem): string {
+function buildPrompt(item: SelectedNewsItem, missingEntities?: string[]): string {
+  const repair =
+    missingEntities && missingEntities.length > 0
+      ? `
+
+REQUIRED REVISION: an earlier draft was rejected because these names/words did not appear in the body: ${JSON.stringify(missingEntities)}.
+You MUST write each of them EXACTLY as spelled (verbatim, case-insensitive) at least once in the body. Do not substitute a nickname or a translated form. This is the single most important requirement — a draft missing any of them is rejected again.`
+      : "";
   return `You are a sports blogger for BarcaPulse, an FC Barcelona and FIFA-focused fan blog.
 
 A news story has just broken. Source title: "${item.source.title}".
@@ -63,7 +73,7 @@ Return ONLY a JSON object (no markdown fences, no prose around it) with this sha
   "body": "string — markdown body, 700-1000 words (minimum 700)",
   "excerpt": "string — 1-line summary, under 200 chars",
   "tags": ["array", "of", "5", "lowercase", "tags"]
-}`;
+}${repair}`;
 }
 
 interface ParsedDraft {

@@ -139,6 +139,13 @@ describe("entityCoverageGate", () => {
     });
     expect(ok).toBe(true);
   });
+  it("normalizes accents so Araújo covers the araujo headline entity", () => {
+    const ok = entityCoverageGate({
+      entities: ["araujo"],
+      body: "Ronald Araújo is expected to start in defence.",
+    });
+    expect(ok).toBe(true);
+  });
   it("still fails when neither verbatim nor any significant token matches", () => {
     const ok = entityCoverageGate({
       entities: ["man city"],

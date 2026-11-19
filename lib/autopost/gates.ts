@@ -76,8 +76,8 @@ export function explainEntityCoverage(input: { entities: string[]; body: string 
   ok: boolean;
   missing: string[];
 } {
-  const lowerBody = input.body.toLowerCase();
-  const missing = input.entities.filter((e) => !entityAppearsInBody(e, lowerBody));
+  const lowerBody = normalize(input.body.toLowerCase());
+  const missing = input.entities.filter((e) => !entityAppearsInBody(normalize(e), lowerBody));
   return { ok: missing.length === 0, missing };
 }
 
@@ -95,6 +95,13 @@ function entityAppearsInBody(entity: string, lowerBody: string): boolean {
   const tokens = lowerEntity.split(/\s+/).filter((t) => t.length >= 4);
   if (tokens.length === 0) return false;
   return tokens.some((t) => new RegExp(`\\b${escapeRegExp(t)}\\b`).test(lowerBody));
+}
+
+/** Strip accents so "araújo" in a draft covers the "araujo" entity extracted
+ *  from an English headline (and vice versa). Football names are frequently
+ *  written with diacritics by the LLM even when the RSS title is ASCII. */
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function escapeRegExp(s: string): string {

@@ -37,7 +37,10 @@ const MIN_AUTOPOST_INTERVAL_MS = 50 * 60 * 1000;
 
 export interface PipelineDeps {
   fetchNews: () => Promise<NewsPost[]>;
-  generate: (item: SelectedNewsItem) => Promise<GenerateResult>;
+  generate: (
+    item: SelectedNewsItem,
+    opts?: { missingEntities?: string[] },
+  ) => Promise<GenerateResult>;
   announceFn: (post: BlogPost, siteUrl: string) => Promise<AnnounceResults>;
   siteUrl: string;
 }
@@ -90,7 +93,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     await state.recordSkip(gen.reason);
     return { status: "skipped", reason: gen.reason };
   }
-  const draft: DraftPost = gen.draft;
+  let draft: DraftPost = gen.draft;
 
   // 3. Quality gates
   // Fetch a wider window for the duplicate-topic Jaccard check than the
@@ -99,7 +102,36 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   const recentForDupe = (await blogStore().list({ limit: 50 })).filter(
     (p) => +new Date(p.createdAt) >= sevenDaysAgo,
   );
-  const gateResult = runGates({ draft, item: selected, recent: recentForDupe });
+  let gateResult = runGates({ draft, item: selected, recent: recentForDupe });
+  if (!gateResult.ok && gateResult.reason === "gate_entity_coverage") {
+    // The LLM occasionally leaves one headline name out of an otherwise good
+    // post. Rather than dropping the whole hour, ask it once more with the
+    // missing names called out explicitly. This costs one extra generation
+    // only on the rare failing draft.
+    const missing = gateResult.diag?.missingEntities ?? [];
+    if (missing.length > 0) {
+      const repaired = await deps.generate(selected, { missingEntities: missing });
+      console.warn(
+        JSON.stringify({ kind: "autopost", repairOk: repaired.ok, missing, reason: repaired.ok ? undefined : repaired.reason }),
+      );
+      if (repaired.ok) {
+        const repairedGates = runGates({
+          draft: repaired.draft,
+          item: selected,
+          recent: recentForDupe,
+        });
+        if (repairedGates.ok) {
+          draft = repaired.draft;
+          gateResult = repairedGates;
+          console.log(
+            JSON.stringify({ kind: "autopost", repairedEntities: missing, slugCandidate: draft.title }),
+          );
+        } else {
+          gateResult = repairedGates;
+        }
+      }
+    }
+  }
   if (!gateResult.ok) {
     await state.recordSkip(gateResult.reason);
     return { status: "skipped", reason: gateResult.reason, diagnostics: gateResult.diag };
