@@ -139,6 +139,14 @@ describe("entityCoverageGate", () => {
     });
     expect(ok).toBe(true);
   });
+  it("allows one missed entity when the headline yielded 3+", () => {
+    expect(
+      explainEntityCoverage({
+        entities: ["deco", "liverpool", "araujo"],
+        body: "Deco wants Liverpool to sign the defender permanently.",
+      }),
+    ).toEqual({ ok: true, missing: ["araujo"] });
+  });
   it("normalizes accents so Araújo covers the araujo headline entity", () => {
     const ok = entityCoverageGate({
       entities: ["araujo"],

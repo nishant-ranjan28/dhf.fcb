@@ -36,6 +36,24 @@ describe("extractEntities", () => {
     expect(ents).not.toContain("breaking");
     expect(ents).toContain("yamal");
   });
+  it("drops contractions and headline filler that caused gate skips", () => {
+    const ents = extractEntities("We'll only sell if offer makes club blink - McInnes");
+    expect(ents).not.toContain("we'll");
+    expect(ents).not.toContain("we");
+    expect(ents).not.toContain("offer");
+    expect(ents.some((e) => e.startsWith("mcin"))).toBe(true);
+  });
+  it("strips possessive suffixes from proper nouns", () => {
+    const ents = extractEntities("Ajax's future stars impress");
+    expect(ents).toContain("ajax");
+    expect(ents).not.toContain("ajax's");
+  });
+  it("drops day/question words capitalised at the start of a headline", () => {
+    const ents = extractEntities("Why it's not too early to worry about Barcelona");
+    expect(ents).not.toContain("why");
+    expect(ents).not.toContain("it's");
+    expect(ents).toContain("barcelona");
+  });
 });
 
 describe("selectNewsItem", () => {

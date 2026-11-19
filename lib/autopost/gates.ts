@@ -78,7 +78,11 @@ export function explainEntityCoverage(input: { entities: string[]; body: string 
 } {
   const lowerBody = normalize(input.body.toLowerCase());
   const missing = input.entities.filter((e) => !entityAppearsInBody(normalize(e), lowerBody));
-  return { ok: missing.length === 0, missing };
+  // Headline extraction is heuristic; one stray "Door"/"Five" (or one name the
+  // LLM leaves out) shouldn't throw away an otherwise publishable post. Keep
+  // short lists strict, allow a single miss once there are 3+ entities.
+  const allowedMisses = input.entities.length >= 3 ? 1 : 0;
+  return { ok: missing.length <= allowedMisses, missing };
 }
 
 export function entityCoverageGate(input: { entities: string[]; body: string }): boolean {
