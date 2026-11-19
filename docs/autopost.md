@@ -1,6 +1,6 @@
 # Auto-post — operator runbook
 
-A GitHub Actions cron triggers `POST /api/cron/auto-post` every 2 hours. The
+A GitHub Actions cron triggers `POST /api/cron/auto-post` every hour. The
 route picks an uncovered news headline, asks Groq (with OpenRouter fallback) to
 write an original post, runs four quality gates, persists the post, then
 pushes to Telegram and the Facebook Page.
@@ -51,7 +51,7 @@ Calendar a reminder for ~50 days after each rotation.
 - **Per-run logs:** Vercel → Logs, filter `kind:"autopost"`. Each run emits one
   JSON line with `status`, `reason`, `durationMs`, `slug` if published.
 - **Dashboard:** `/admin/autopost` shows the last 7 days of counters.
-- **GitHub Actions:** Actions tab → "Auto-post (throttled)" — green/red every 2 hours.
+- **GitHub Actions:** Actions tab → "Auto-post (throttled)" — green/red every hour.
 
 ## Known limitations
 
@@ -60,7 +60,7 @@ Calendar a reminder for ~50 days after each rotation.
   in the same second) can lose an increment. The day-cap is enforced upstream
   so this never produces over-publishing in practice, but the dashboard
    counts may be off by 1 in those edge cases. Acceptable for v1 — the cron
-   runs every 2 hours and the route is sequential per invocation.
+   runs once an hour and the route is sequential per invocation.
 
 - **Provider failures are silent.** `/api/cron/auto-post` swallows Groq
   errors into a generic `all_providers_failed` skip reason; consult the

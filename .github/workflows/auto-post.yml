@@ -2,10 +2,10 @@ name: Auto-post (throttled)
 
 on:
   schedule:
-    # Every 2 hours = 12 runs/day. Monetization runs on Adsterra now, so the
-    # AdSense-review throttling rationale is gone; pipeline gates (day cap,
-    # duplicate topics, manual cooldown) still bound actual output.
-    - cron: "0 */2 * * *"
+    # Hourly = up to 24 runs/day. The pipeline's day cap (24), duplicate-topic
+    # and manual-cooldown gates still bound actual output, so a run that finds
+    # no eligible news simply skips instead of publishing.
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 permissions:
