@@ -35,11 +35,18 @@ and has no meaningful hourly limit.
    - **Schedule:** every hour (`0 * * * *`)
    - **Request method:** `POST`
    - **Header:** `Authorization: Bearer <CRON_TOKEN>`
-   - **Timeout:** 90 seconds (the route's `maxDuration`)
+   - **Timeout:** 30 seconds (cron-job.org's maximum; a typical run takes ~20s)
 4. Save, then **Run now** to verify. Expected: `HTTP 200` and a JSON body with
    `"status":"published"` or a `"status":"skipped"` reason. Repeat triggers
    inside 50 minutes return `{"status":"skipped","reason":"min_interval"}` by
    design.
+
+If runs start timing out at 30s, either move the job to a scheduler with a
+longer timeout (CronJobPro free allows 5 minutes) or have the external cron
+dispatch the GitHub workflow instead of calling the route directly:
+`POST https://api.github.com/repos/nishant-ranjan28/dhf.fcb/actions/workflows/auto-post.yml/dispatches`
+with a fine-grained PAT (repo → Actions: write) and body `{"ref":"main"}`.
+GitHub then calls the route with its own 90s budget.
 5. Credentials are stored by the cron service — if `CRON_TOKEN` is rotated,
    update it here and in Vercel/GitHub at the same time.
 
