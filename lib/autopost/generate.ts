@@ -91,7 +91,7 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {
-      console.warn("[autopost] groq http", res.status);
+      console.warn("[autopost] groq http", res.status, (await res.text()).slice(0, 400));
       return res.status === 429 ? { ok: false, quota: true } : { ok: false };
     }
     const data = (await res.json()) as {
@@ -136,7 +136,7 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {
-      console.warn("[autopost] openrouter http", res.status);
+      console.warn("[autopost] openrouter http", res.status, (await res.text()).slice(0, 400));
       return res.status === 429 ? { ok: false, quota: true } : { ok: false };
     }
     const data = (await res.json()) as {
