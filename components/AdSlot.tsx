@@ -102,7 +102,7 @@ export function AdSlot({
   return (
     <div
       data-ad-slot={size}
-      className={`${visibility(size)} mx-4 my-3 ${dims.h} bg-ink-soft border border-dashed border-ink-line rounded-lg flex items-center justify-center text-ink-muted text-xs uppercase tracking-wide`}
+      className={`${visibility(size)} mx-auto my-3 ${dims.w} ${dims.h} bg-ink-soft border border-dashed border-ink-line rounded-lg flex items-center justify-center text-ink-muted text-xs uppercase tracking-wide`}
     >
       {label} · {size}
     </div>
@@ -131,7 +131,7 @@ export function SideRail({ side }: { side: "left" | "right" }) {
   return (
     <aside
       aria-label="Advertisement rail"
-      className="hidden xl:flex flex-col gap-4 sticky top-16 self-start w-[160px] shrink-0"
+      className="global-side-rail hidden xl:flex flex-col gap-4 sticky top-16 self-start w-[160px] shrink-0"
     >
       <AdSlot size="160x600" />
       {side === "right" && <AdSlot size="160x300" />}
@@ -154,11 +154,15 @@ export function StickyBottomAd() {
     );
   }
 
-  const adsterraKey = ADSTERRA_ENV["320x50"];
+  // Vercel currently has the 300x50 key; AdSense uses the 320x50 name.
+  // Accept both so the sticky unit fills whichever one is configured.
+  const legacyKey = process.env.NEXT_PUBLIC_ADSTERRA_KEY_300x50;
+  const adsterraKey = ADSTERRA_ENV["320x50"] ?? legacyKey;
   if (adsterraKey) {
+    const width = ADSTERRA_ENV["320x50"] ? 320 : 300;
     return (
       <div className="fixed bottom-14 inset-x-0 z-20 mx-auto max-w-screen h-[50px] flex items-center justify-center bg-ink">
-        <AdsterraBanner adKey={adsterraKey} width={320} height={50} />
+        <AdsterraBanner adKey={adsterraKey} width={width} height={50} />
       </div>
     );
   }

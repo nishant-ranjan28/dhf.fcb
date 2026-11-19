@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { BlogCard } from "@/components/BlogCard";
 import { TelegramCTA } from "@/components/TelegramCTA";
@@ -37,9 +38,18 @@ export default async function BlogPage() {
           </p>
         </div>
       ) : (
-        <div className="px-4 space-y-3">
-          {posts.map((p) => (
-            <BlogCard key={p.slug} post={p} views={views[p.slug] ?? 0} />
+        <div className="px-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {posts.map((p, i) => (
+            <Fragment key={p.slug}>
+              <BlogCard post={p} views={views[p.slug] ?? 0} />
+              {/* One in-feed unit per screenful instead of hiding every ad
+                  at the very bottom. Spans both grid columns on desktop. */}
+              {(i === 5 || i === 17) && (
+                <div className="md:col-span-2">
+                  <AdSlot size="300x250" />
+                </div>
+              )}
+            </Fragment>
           ))}
         </div>
       )}

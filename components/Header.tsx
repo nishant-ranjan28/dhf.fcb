@@ -12,7 +12,7 @@ const tabs = [
 export function Header() {
   return (
     <header className="sticky top-0 z-40 bg-ink/95 backdrop-blur border-b border-ink-line">
-      <div className="mx-auto max-w-screen px-4 h-12 flex items-center gap-4">
+      <div className="site-header-inner mx-auto max-w-screen px-4 h-12 flex items-center gap-4">
         <Link href="/" className="shrink-0 font-extrabold tracking-tight text-white">
           <span className="text-barca-blue">Barca</span>
           <span className="text-barca-red">Pulse</span>

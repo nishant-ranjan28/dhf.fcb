@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Header } from "@/components/Header";
-import { LeaderboardAd, SideRail } from "@/components/AdSlot";
+import { LeaderboardAd, SideRail, StickyBottomAd } from "@/components/AdSlot";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
 import { CookieConsent } from "@/components/CookieConsent";
@@ -65,6 +65,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SideRail side="right" />
         </div>
         <BottomNav />
+        {/* Phone-only sticky 320x50: the header nav replaces the bottom nav
+            on desktop, so there is no reason to show a fixed strip there. */}
+        <div className="lg:hidden">
+          <StickyBottomAd />
+        </div>
         <Analytics />
         {/* CookieConsent gates the ad loaders (AdSense, Adsterra) on user
             consent. Scripts are only injected after Accept; before that, no

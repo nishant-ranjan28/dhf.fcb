@@ -114,3 +114,38 @@
 }
 .prose-blog th { background: #15151B; color: #fff; }
 .prose-blog hr { border-color: #23232B; }
+
+/* Desktop blog shell. Only /blog and /blog/[slug] opt in via the
+ * [data-wide-layout] marker from app/blog/layout.tsx, so every other route
+ * keeps the original 640px mobile-first column. Below lg nothing here
+ * applies, which keeps the phone layout byte-for-byte unchanged. */
+@media (min-width: 1024px) {
+  main:has(> [data-wide-layout]) {
+    max-width: 1120px;
+  }
+
+  .blog-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    padding: 0 16px;
+  }
+
+  .blog-shell__rail {
+    position: sticky;
+    top: 76px;
+    align-self: start;
+  }
+
+  /* The header/footer normally share the 640px column; widen them on blog
+   * routes so the navigation lines up with the wider content. */
+  body:has(main > [data-wide-layout]) .site-header-inner,
+  main:has(> [data-wide-layout]) > .site-footer > div {
+    max-width: 1120px;
+  }
+
+  /* The generic 160px rails belong to the narrow single-column routes. */
+  body:has(main > [data-wide-layout]) .global-side-rail {
+    display: none;
+  }
+}

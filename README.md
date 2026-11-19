@@ -114,8 +114,9 @@ API routes also send `Cache-Control: s-maxage=...` so the Vercel edge caches GET
 
 ## Monetization
 
-- `<AdSlot size="300x250" | "320x100" | "320x50" />` — renders Google AdSense `<ins>` when `NEXT_PUBLIC_ADSENSE_CLIENT` + slot id are set; otherwise a same-sized placeholder so layout doesn't shift when ads activate.
-- `<StickyBottomAd />` — 320×50 above the bottom nav.
+- `<AdSlot size="..." />` — supports 300×250, 320×100, 320×50, 160×300, 160×600, 468×60 and 728×90. For each size it renders the first configured network: AdSense `<ins>` (client + slot id set), then Adsterra (consent-gated iframe keyed by `NEXT_PUBLIC_ADSTERRA_KEY_<size>`), then a same-sized dev placeholder so layout doesn't shift when ads activate. **The live site uses Adsterra.**
+- `<StickyBottomAd />` — phone-only sticky 320×50 (or 300×50) above the bottom nav.
+- Blog desktop layout: `/blog` and `/blog/[slug]` expand to a 1120px two-column shell with a sticky 300px ad rail; below `lg` the original single column is unchanged. In-feed 300×250 units sit after posts 6 and 18 on the listing, and above/below the article body on detail pages.
 - `<TelegramCTA />` — strip variant in feeds; `variant="sticky"` for above-nav CTA. Reads `NEXT_PUBLIC_TELEGRAM_URL`; in dev, an amber banner reminds you when it's unset.
 
 ## Admin: posting news

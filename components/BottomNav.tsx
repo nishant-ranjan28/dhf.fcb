@@ -9,7 +9,7 @@ const items = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-ink/95 backdrop-blur border-t border-ink-line">
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-ink/95 backdrop-blur border-t border-ink-line lg:hidden">
       <ul className="mx-auto max-w-screen grid grid-cols-4">
         {items.map((it) => (
           <li key={it.href}>

@@ -135,6 +135,9 @@ export default async function BlogPostPage({
           </div>
         )}
         <ShareButtons url={shareUrl} title={post.title} excerpt={post.excerpt} tags={post.tags} />
+        {/* Second in-article unit: one above the copy, one after it. Keeps
+            long reads from showing a single ad only at the very bottom. */}
+        <AdSlot size="300x250" />
         <div
           className="prose-blog mt-2 text-[15px] text-white leading-relaxed"
           dangerouslySetInnerHTML={{ __html: html }}

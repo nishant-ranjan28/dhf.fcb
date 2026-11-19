@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-ink-line bg-ink-soft mt-8 pb-20">
+    <footer className="site-footer border-t border-ink-line bg-ink-soft mt-8 pb-20">
       <div className="mx-auto max-w-screen px-4 py-5 text-[12px] text-ink-muted">
         <p className="mb-2">
           <strong className="text-white">BarcaPulse</strong> — independent fan site for
