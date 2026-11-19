@@ -13,7 +13,7 @@ const STOP_WORDS = new Set([
   "new","now","still","even","ever","never","always","first","last","next",
   "after","before","over","under","about","against","between","through",
   "around","ahead","behind","into","out","up","down","off","on","no","not",
-  "yes","one","two","three","four","five","six","seven","eight","nine","ten",
+  "yes","door","one","two","three","four","five","six","seven","eight","nine","ten",
   "all","any","some","every","each","other",
   "another","same","such","than","then","there","here","because","while",
   "during","watch","watched","fan","fans","club","clubs","game","games",
@@ -59,14 +59,25 @@ export function extractEntities(title: string): string[] {
     // "We'll only sell..." / "It's not over" — contraction, not a name.
     const contraction = /^([a-z]+)['’](?:ll|re|ve|d|m|t|s)$/i.exec(raw);
     if (contraction && CONTRACTION_BASES.has(contraction[1].toLowerCase())) continue;
-    // "Ajax's future" → entity "ajax", not "ajax's". Same for "Thursday's".
-    const phrase = raw.replace(/['’]s$/i, "").toLowerCase();
-    if (STOP_WORDS.has(phrase)) continue;
+    // "Ajax's future" → "ajax"; "'El Clasico'" → "el clasico" (no stray quote).
+    const tokens = raw
+      .replace(/^['’]+|['’]+$/g, "")
+      .split(/\s+/)
+      .map((word) => word.replace(/['’]s\b/gi, "").replace(/['’]+$/, ""))
+      .filter((word) => {
+        const lower = word.toLowerCase();
+        if (STOP_WORDS.has(lower)) return false;
+        // "I've", "We'll" etc. are never entities, even mid-phrase.
+        const c = /^([a-z]+)['’](?:ll|re|ve|d|m|t|s)$/i.exec(word);
+        if (c && CONTRACTION_BASES.has(c[1].toLowerCase())) return false;
+        return true;
+      });
+    const phrase = tokens.join(" ").toLowerCase();
+    if (tokens.length === 0) continue;
     if (phrase.length < 3) continue;
     if (/^ex-[a-z]$/.test(phrase)) continue; // "Ex-U.S." → "ex-u"
     // Drop phrases whose tokens look like source citations / decoration.
-    const tokens = phrase.split(/\s+/);
-    if (tokens.some((t) => SOURCE_NOISE.has(t))) continue;
+    if (tokens.some((t) => SOURCE_NOISE.has(t.toLowerCase()))) continue;
     out.add(phrase);
   }
   return [...out];

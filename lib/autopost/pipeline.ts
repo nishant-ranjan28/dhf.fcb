@@ -24,7 +24,12 @@ type GateSkipReason =
   | "gate_banned_phrases"
   | "gate_entity_coverage";
 
-type GateResult = { ok: true } | { ok: false; reason: GateSkipReason; diag: GateDiagnostics };
+// Entity coverage is a soft signal: the headline extractor is heuristic, and
+// an LLM omitting one name does not make an otherwise good post wrong. We try
+// one repair, then publish with a logged warning instead of dropping the hour.
+type GateResult =
+  | { ok: true; missingEntities?: string[] }
+  | { ok: false; reason: GateSkipReason; diag: GateDiagnostics };
 import type { GenerateResult } from "./generate";
 import type { BlogPost } from "@/lib/blog/types";
 
@@ -103,34 +108,47 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     (p) => +new Date(p.createdAt) >= sevenDaysAgo,
   );
   let gateResult = runGates({ draft, item: selected, recent: recentForDupe });
-  if (!gateResult.ok && gateResult.reason === "gate_entity_coverage") {
+  if (gateResult.ok && gateResult.missingEntities?.length) {
     // The LLM occasionally leaves one headline name out of an otherwise good
-    // post. Rather than dropping the whole hour, ask it once more with the
-    // missing names called out explicitly. This costs one extra generation
-    // only on the rare failing draft.
-    const missing = gateResult.diag?.missingEntities ?? [];
-    if (missing.length > 0) {
-      const repaired = await deps.generate(selected, { missingEntities: missing });
-      console.warn(
-        JSON.stringify({ kind: "autopost", repairOk: repaired.ok, missing, reason: repaired.ok ? undefined : repaired.reason }),
-      );
-      if (repaired.ok) {
-        const repairedGates = runGates({
-          draft: repaired.draft,
-          item: selected,
-          recent: recentForDupe,
-        });
-        if (repairedGates.ok) {
-          draft = repaired.draft;
-          gateResult = repairedGates;
-          console.log(
-            JSON.stringify({ kind: "autopost", repairedEntities: missing, slugCandidate: draft.title }),
-          );
-        } else {
-          gateResult = repairedGates;
-        }
+    // post. Ask it once more with the missing names called out explicitly.
+    // This costs one extra generation only on the rare failing draft.
+    const missing = gateResult.missingEntities;
+    const repaired = await deps.generate(selected, { missingEntities: missing });
+    console.warn(
+      JSON.stringify({ kind: "autopost", repairOk: repaired.ok, missing, reason: repaired.ok ? undefined : repaired.reason }),
+    );
+    if (repaired.ok) {
+      const repairedGates = runGates({
+        draft: repaired.draft,
+        item: selected,
+        recent: recentForDupe,
+      });
+      if (!repairedGates.ok) {
+        // A real gate (word count / banned phrase / duplicate) failed on the
+        // repair — keep the original draft and its soft warning instead.
+        console.warn(
+          JSON.stringify({ kind: "autopost", repairRejected: repairedGates.reason }),
+        );
+      } else if ((repairedGates.missingEntities?.length ?? 0) < missing.length) {
+        draft = repaired.draft;
+        gateResult = repairedGates;
+        console.log(
+          JSON.stringify({ kind: "autopost", repairedEntities: missing, slugCandidate: draft.title }),
+        );
       }
     }
+  }
+  if (gateResult.ok && gateResult.missingEntities?.length) {
+    // Never skip the hour over a soft entity mismatch. Log it so the dashboard
+    // / Vercel logs still show the quality signal without losing a publish.
+    console.warn(
+      JSON.stringify({
+        kind: "autopost",
+        entityCoverageWarning: gateResult.missingEntities,
+        slugCandidate: draft.title,
+      }),
+    );
+    gateResult = { ok: true };
   }
   if (!gateResult.ok) {
     await state.recordSkip(gateResult.reason);
@@ -178,10 +196,9 @@ function runGates(args: {
   if (banned !== null) {
     return { ok: false, reason: "gate_banned_phrases", diag: { bannedPhrase: banned } };
   }
+  // Soft signal only — surfaced to the caller as a warning, never a skip.
   const cov = explainEntityCoverage({ entities: args.item.entities, body: args.draft.body });
-  if (!cov.ok) {
-    return { ok: false, reason: "gate_entity_coverage", diag: { missingEntities: cov.missing } };
-  }
+  const missingEntities = cov.ok ? undefined : cov.missing;
   const titleEntities = extractEntities(args.draft.title).map((s) => s.toLowerCase());
   // recentEntities=[] is intentional: selectNewsItem already rejects items
   // whose entities overlap with state.recentEntities(7d), so by this point the
@@ -200,5 +217,5 @@ function runGates(args: {
       diag: dupe.duplicateOf ? { duplicateOf: dupe.duplicateOf } : {},
     };
   }
-  return { ok: true };
+  return { ok: true, missingEntities };
 }

@@ -196,6 +196,23 @@ describe("runPipeline", () => {
     expect(generate.mock.calls[1][1]).toEqual({ missingEntities: ["yamal"] });
   });
 
+  it("still publishes when entity coverage fails even after the repair", async () => {
+    const bad = {
+      ...GOOD_DRAFT,
+      title: "Yamal deal covered",
+      body: "Barcelona announced a new deal today. " + "word ".repeat(700),
+    };
+    const generate = vi.fn().mockResolvedValue({ ok: true, draft: bad });
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem()],
+      generate,
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      siteUrl: "https://x.com",
+    });
+    expect(r, JSON.stringify(r)).toMatchObject({ status: "published" });
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
   it("propagates provider failure as all_providers_failed", async () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
