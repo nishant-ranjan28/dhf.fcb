@@ -85,8 +85,12 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
         model: resolveGroqModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 2048,
-        response_format: { type: "json_object" },
+        // gpt-oss burns reasoning tokens before emitting the JSON. 2048 left
+        // nothing for the answer and Groq rejected it with json_validate_failed.
+        max_tokens: 4096,
+        // No response_format: Groq's strict JSON validator rejects any preamble
+        // or reasoning leak. The prompt asks for JSON and parseJsonDraft below
+        // extracts the object from whatever the model wraps around it.
       }),
       signal: AbortSignal.timeout(30_000),
     });
@@ -99,12 +103,12 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
     };
     const text = data.choices?.[0]?.message?.content;
     if (!text) {
-      console.warn("[autopost] groq parse failed");
+      console.warn("[autopost] groq returned no content");
       return { ok: false };
     }
     const draft = parseJsonDraft(text);
     if (!draft) {
-      console.warn("[autopost] groq parse failed");
+      console.warn("[autopost] groq parse failed:", text.slice(0, 200));
       return { ok: false };
     }
     return { ok: true, draft };
@@ -130,8 +134,7 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
         model: resolveOpenRouterModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 2048,
-        response_format: { type: "json_object" },
+        max_tokens: 4096,
       }),
       signal: AbortSignal.timeout(30_000),
     });
@@ -144,12 +147,12 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
     };
     const text = data.choices?.[0]?.message?.content;
     if (!text) {
-      console.warn("[autopost] openrouter parse failed");
+      console.warn("[autopost] openrouter returned no content");
       return { ok: false };
     }
     const draft = parseJsonDraft(text);
     if (!draft) {
-      console.warn("[autopost] openrouter parse failed");
+      console.warn("[autopost] openrouter parse failed:", text.slice(0, 200));
       return { ok: false };
     }
     return { ok: true, draft };
@@ -160,13 +163,18 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
 }
 
 function parseJsonDraft(text: string): ParsedDraft | null {
-  // Models occasionally wrap JSON in ```json fences. Strip them.
+  // Reasoning models often emit a sentence or a ```json fence around the
+  // object. Strip fences, then slice from the first `{` to the last `}` so a
+  // preamble doesn't make the whole response unparseable.
   const cleaned = text.trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```$/g, "")
     .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const candidate = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
   try {
-    const parsed = JSON.parse(cleaned) as Partial<ParsedDraft>;
+    const parsed = JSON.parse(candidate) as Partial<ParsedDraft>;
     if (
       typeof parsed.title !== "string" ||
       typeof parsed.body !== "string" ||

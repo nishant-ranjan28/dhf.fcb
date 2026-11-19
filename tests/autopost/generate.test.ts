@@ -57,7 +57,7 @@ describe("generateDraft — Groq only", () => {
     }
   });
 
-  it("sends the Groq request with bearer auth + json mode", async () => {
+  it("sends the Groq request with bearer auth and enough tokens for reasoning", async () => {
     process.env.GROQ_API_KEY = "test-groq";
     const fetchMock = mockGroq(groqJsonPayload(VALID));
     vi.stubGlobal("fetch", fetchMock);
@@ -67,7 +67,18 @@ describe("generateDraft — Groq only", () => {
     expect(headers.authorization).toBe("Bearer test-groq");
     const body = JSON.parse(String(init.body));
     expect(body.model).toBe("openai/gpt-oss-20b");
-    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.max_tokens).toBe(4096);
+    // No response_format: Groq's strict JSON validator rejects preamble text.
+    expect(body.response_format).toBeUndefined();
+  });
+
+  it("accepts JSON wrapped in prose or code fences", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    const wrapped = `Here is the post:\n\n\`\`\`json\n${JSON.stringify(VALID)}\n\`\`\``;
+    vi.stubGlobal("fetch", mockGroq({ choices: [{ message: { content: wrapped } }] }));
+    const r = await generateDraft(ITEM);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.draft.title).toBe(VALID.title);
   });
 
   it("returns reason:'quota' on Groq 429", async () => {
