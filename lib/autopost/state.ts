@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import type { GateDiagnostics } from "./gates";
+import type { AnnounceResults } from "./types";
 
 const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
@@ -22,6 +23,10 @@ export interface LastRunRecord {
   slug?: string;
   provider?: "groq" | "openrouter";
   error?: string;
+  /** Per-platform announce outcomes (telegram, facebook, indexnow, x, bluesky).
+   *  Included so a "blog published but no Telegram post" report is diagnosable
+   *  from the cron ack alone, without Vercel logs or admin login. */
+  announces?: AnnounceResults;
 }
 
 export interface DayStats {

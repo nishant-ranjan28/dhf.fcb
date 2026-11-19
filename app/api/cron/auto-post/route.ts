@@ -59,7 +59,7 @@ export async function runAutopost(): Promise<PipelineResult> {
       durationMs: Date.now() - started,
       status: result.status,
       ...(result.status === "published"
-        ? { slug: result.slug, provider: result.provider }
+        ? { slug: result.slug, provider: result.provider, announces: result.announces }
         : {}),
       ...(result.status === "skipped"
         ? { reason: result.reason, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) }
