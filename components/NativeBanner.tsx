@@ -8,15 +8,21 @@
 // two-script collision isn't a concern here. Consent-gated like all ads.
 //
 // Env: NEXT_PUBLIC_ADSTERRA_NATIVE_SRC — the script src from the Adsterra
-// embed snippet, e.g. //pl123456.profitablecpmgate.com/<key>/invoke.js
+// embed snippet. Adsterra reissues these URLs per publisher (ours is
+// https://bauval.org/21/<key>, with no /invoke.js), so the default below is
+// only a fallback; override the env var when Adsterra changes the code.
 
 import { useEffect, useState } from "react";
 import { CONSENT_ACCEPTED_EVENT, hasAdConsent } from "@/lib/consent";
 
-const SRC = process.env.NEXT_PUBLIC_ADSTERRA_NATIVE_SRC;
+const SRC =
+  process.env.NEXT_PUBLIC_ADSTERRA_NATIVE_SRC ||
+  "https://bauval.org/21/7ebabaa1099f9fcaef3460d32a6b8bf8";
 
 function containerIdFromSrc(src: string): string | null {
-  const m = /\/([a-z0-9]+)\/invoke\.js/i.exec(src);
+  // Both the old /<key>/invoke.js form and the current /21/<key> form carry
+  // the same 32-char hex key; the container div is always container-<key>.
+  const m = /(?:^|[/-])([a-f0-9]{32})(?:[/"'#?]|$)/i.exec(src);
   return m ? `container-${m[1]}` : null;
 }
 
