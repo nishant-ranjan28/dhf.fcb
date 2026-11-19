@@ -20,8 +20,12 @@ export async function POST(req: Request) {
   // ~60s (Groq, then the OpenRouter fallback). Ack straight away and let
   // Next's `after()` keep the serverless function alive until the work ends.
   // The outcome is persisted in Redis and shown at /admin/autopost.
+  // The cron service only sees this ack, so include the previous run's outcome
+  // (published / skipped + reason) to make silent skips diagnosable without
+  // needing an admin login or digging through Vercel logs.
+  const lastRun = await autopostState().getLastRun().catch(() => null);
   after(() => runAutopost());
-  return NextResponse.json({ status: "accepted" });
+  return NextResponse.json({ status: "accepted", lastRun });
 }
 
 /** The actual pipeline. Kept separate from POST so unit tests can await it
