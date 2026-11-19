@@ -154,8 +154,8 @@ describe("runPipeline", () => {
     expect(r).toEqual({ status: "skipped", reason: "min_interval" });
   });
 
-  it("publishes when the newest autopost is older than the 50min interval", async () => {
-    vi.useFakeTimers({ now: Date.now() - 60 * 60 * 1000 });
+  it("publishes when the newest autopost is older than the 10min interval", async () => {
+    vi.useFakeTimers({ now: Date.now() - 20 * 60 * 1000 });
     try {
       await blogStore().create({ title: "Prior autopost", body: "x", author: "BarcaPulse Auto" });
     } finally {
