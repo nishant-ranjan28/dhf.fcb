@@ -30,6 +30,10 @@ import type { BlogPost } from "@/lib/blog/types";
 
 const DAY_CAP = 24;
 const MANUAL_COOLDOWN_MS = 55 * 60 * 1000;
+// Two independent triggers may fire close together (the external hourly cron
+// plus the GitHub Actions schedule kept as a fallback). Without this guard a
+// double-fire could publish two posts in the same hour.
+const MIN_AUTOPOST_INTERVAL_MS = 50 * 60 * 1000;
 
 export interface PipelineDeps {
   fetchNews: () => Promise<NewsPost[]>;
@@ -50,15 +54,23 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     return { status: "skipped", reason: "day_cap_reached" };
   }
 
-  // Manual cooldown: don't auto-post if a human posted within the last 55 min.
-  // Prior autoposts (author === "BarcaPulse Auto") are excluded so consecutive
-  // autoposts don't trip each other's cooldown when cron drifts.
+  // Cooldowns:
+  //   - a human post within 55 min blocks autoposts (manual_cooldown);
+  //   - an autopost within 50 min blocks the next one (min_interval). This is
+  //     what lets the external cron and the GitHub schedule coexist without
+  //     publishing twice in one hour.
   const recentNewest = await blogStore().list({ limit: 1 });
-  if (recentNewest.length > 0 && recentNewest[0].author !== "BarcaPulse Auto") {
-    const age = Date.now() - +new Date(recentNewest[0].createdAt);
-    if (age < MANUAL_COOLDOWN_MS) {
+  if (recentNewest.length > 0) {
+    const newest = recentNewest[0];
+    const age = Date.now() - +new Date(newest.createdAt);
+    const isAutopost = newest.author === "BarcaPulse Auto";
+    if (!isAutopost && age < MANUAL_COOLDOWN_MS) {
       await state.recordSkip("manual_cooldown");
       return { status: "skipped", reason: "manual_cooldown" };
+    }
+    if (isAutopost && age < MIN_AUTOPOST_INTERVAL_MS) {
+      await state.recordSkip("min_interval");
+      return { status: "skipped", reason: "min_interval" };
     }
   }
 

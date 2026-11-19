@@ -28,6 +28,7 @@ export type SkipReason =
   | "no_eligible_news"
   | "day_cap_reached"
   | "manual_cooldown"
+  | "min_interval"
   | "all_providers_failed"
   | "quota"
   | "gate_word_count"

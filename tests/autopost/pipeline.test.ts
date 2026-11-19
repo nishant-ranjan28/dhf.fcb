@@ -143,8 +143,24 @@ describe("runPipeline", () => {
     expect(r).toEqual({ status: "skipped", reason: "manual_cooldown" });
   });
 
-  it("does NOT cool down when newest post is from autopost itself", async () => {
+  it("skips with min_interval when newest post is a recent autopost", async () => {
     await blogStore().create({ title: "Prior autopost", body: "x", author: "BarcaPulse Auto" });
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem()],
+      generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      siteUrl: "https://x.com",
+    });
+    expect(r).toEqual({ status: "skipped", reason: "min_interval" });
+  });
+
+  it("publishes when the newest autopost is older than the 50min interval", async () => {
+    vi.useFakeTimers({ now: Date.now() - 60 * 60 * 1000 });
+    try {
+      await blogStore().create({ title: "Prior autopost", body: "x", author: "BarcaPulse Auto" });
+    } finally {
+      vi.useRealTimers();
+    }
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),

@@ -1,9 +1,15 @@
 # Auto-post — operator runbook
 
-A GitHub Actions cron triggers `POST /api/cron/auto-post` every hour. The
-route picks an uncovered news headline, asks Groq (with OpenRouter fallback) to
-write an original post, runs four quality gates, persists the post, then
-pushes to Telegram and the Facebook Page.
+An external cron (cron-job.org) triggers `POST /api/cron/auto-post` every hour.
+A GitHub Actions schedule remains as a fallback and for manual runs. The route
+picks an uncovered news headline, asks Groq (with OpenRouter fallback) to write
+an original post, runs four quality gates, persists the post, then pushes to
+Telegram and the Facebook Page.
+
+> Why not GitHub Actions alone? GitHub's scheduler is best-effort and drops most
+> high-frequency runs on low-activity repos. This repo's history shows only
+> ~3 scheduled runs/day even on an every-2-hours cron, so the external trigger
+> is the primary one.
 
 ## Required env vars (Vercel)
 
@@ -17,12 +23,39 @@ pushes to Telegram and the Facebook Page.
 | `AUTOPOST_ENABLED` | `"true"` to start, anything else to pause | Kill switch. Default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true` to enable the feature. |
 | `SITE_URL` | `https://dhf-fcb.iamnishant.in` | Already set; used for post links |
 
-## GitHub Actions setup
+## External cron setup (primary trigger)
+
+Use any scheduler that supports `POST` + custom headers. cron-job.org is free
+and has no meaningful hourly limit.
+
+1. Copy `CRON_TOKEN` from Vercel → Project → Settings → Environment Variables.
+2. Sign in to https://cron-job.org and choose **Create cronjob**.
+3. Fill in:
+   - **URL:** `https://dhf-fcb.iamnishant.in/api/cron/auto-post`
+   - **Schedule:** every hour (`0 * * * *`)
+   - **Request method:** `POST`
+   - **Header:** `Authorization: Bearer <CRON_TOKEN>`
+   - **Timeout:** 90 seconds (the route's `maxDuration`)
+4. Save, then **Run now** to verify. Expected: `HTTP 200` and a JSON body with
+   `"status":"published"` or a `"status":"skipped"` reason. Repeat triggers
+   inside 50 minutes return `{"status":"skipped","reason":"min_interval"}` by
+   design.
+5. Credentials are stored by the cron service — if `CRON_TOKEN` is rotated,
+   update it here and in Vercel/GitHub at the same time.
+
+The min-interval guard in `lib/autopost/pipeline.ts` means the external cron and
+the GitHub fallback can both fire in the same hour without double-publishing.
+
+## GitHub Actions setup (fallback / manual runs)
 
 1. Repo → Settings → Secrets and variables → Actions
 2. New repository secret: `CRON_TOKEN` (same value as Vercel)
 3. The workflow at `.github/workflows/auto-post.yml` runs on `cron: "0 * * * *"`
+   as a best-effort fallback. Keep it enabled — if the external cron fails, a
+   GitHub run can still publish, but expect only a few scheduled runs per day.
 4. To test immediately: Actions → "Auto-post (throttled)" → Run workflow
+5. To make the external cron the only trigger, delete the `schedule:` block
+   from the workflow and keep `workflow_dispatch:`.
 
 ## Kill switch
 
@@ -51,7 +84,10 @@ Calendar a reminder for ~50 days after each rotation.
 - **Per-run logs:** Vercel → Logs, filter `kind:"autopost"`. Each run emits one
   JSON line with `status`, `reason`, `durationMs`, `slug` if published.
 - **Dashboard:** `/admin/autopost` shows the last 7 days of counters.
-- **GitHub Actions:** Actions tab → "Auto-post (throttled)" — green/red every hour.
+- **External cron:** cron-job.org → job history shows the hourly HTTP status and
+  response body.
+- **GitHub Actions (fallback):** Actions tab → "Auto-post (throttled)" — only a
+  few scheduled runs/day are expected; use `workflow_dispatch` for a one-off.
 
 ## Known limitations
 
@@ -86,7 +122,8 @@ Calendar a reminder for ~50 days after each rotation.
 | All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check `GROQ_MODEL` is still a served ID |
 | Facebook push always `err` | Token expired | Renew per "Facebook token renewal" above |
 | Telegram push always `err` | Bot was kicked from channel / token rotated | Re-invite bot; rotate `TELEGRAM_BOT_TOKEN` |
-| GH Actions runs not firing | Cron drifted; GitHub disabled cron on idle repo | Trigger via `workflow_dispatch` to revive |
+| GH Actions runs not firing | GitHub drops/delays scheduled runs on idle repos | Rely on the external cron; trigger via `workflow_dispatch` for a one-off |
+| Every run returns `min_interval` | Two triggers are firing within 50 min | Expected when both crons fire; disable the GH `schedule` block to stop it |
 
 ## Rolling back
 
