@@ -35,7 +35,7 @@ and has no meaningful hourly limit.
    - **Schedule:** every hour (`0 * * * *`)
    - **Request method:** `POST`
    - **Header:** `Authorization: Bearer <CRON_TOKEN>`
-   - **Timeout:** 30 seconds (cron-job.org's maximum; a typical run takes ~20s)
+   - **Timeout:** 30 seconds (cron-job.org's maximum; the route acks in <1s)
 4. Save, then **Run now** to verify. Expected: `HTTP 200` and
    `{"status":"accepted"}`. That ack is deliberate — cron-job.org has a hard
    30s timeout, while generation can take ~60s (Groq, then OpenRouter). The
@@ -127,6 +127,7 @@ Calendar a reminder for ~50 days after each rotation.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| All runs return `all_providers_failed` with `groq http 400 ... json_validate_failed` | gpt-oss reasoning used up the output budget before emitting JSON | Already fixed in `lib/autopost/generate.ts`: 4096 tokens and no strict `response_format`; check Vercel logs for the provider error body |
 | All runs return `quota` | Groq free tier exhausted (30 RPM / 1K req/day) | Wait for daily reset, or upgrade the Groq plan |
 | All runs return `no_eligible_news` | Recent-topics set too aggressive | Wait — topics expire after 7 days |
 | All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check `GROQ_MODEL` is still a served ID |
