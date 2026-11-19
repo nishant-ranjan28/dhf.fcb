@@ -36,18 +36,15 @@ and has no meaningful hourly limit.
    - **Request method:** `POST`
    - **Header:** `Authorization: Bearer <CRON_TOKEN>`
    - **Timeout:** 30 seconds (cron-job.org's maximum; a typical run takes ~20s)
-4. Save, then **Run now** to verify. Expected: `HTTP 200` and a JSON body with
-   `"status":"published"` or a `"status":"skipped"` reason. Repeat triggers
-   inside 50 minutes return `{"status":"skipped","reason":"min_interval"}` by
-   design.
-
-If runs start timing out at 30s, either move the job to a scheduler with a
-longer timeout (CronJobPro free allows 5 minutes) or have the external cron
-dispatch the GitHub workflow instead of calling the route directly:
-`POST https://api.github.com/repos/nishant-ranjan28/dhf.fcb/actions/workflows/auto-post.yml/dispatches`
-with a fine-grained PAT (repo → Actions: write) and body `{"ref":"main"}`.
-GitHub then calls the route with its own 90s budget.
-5. Credentials are stored by the cron service — if `CRON_TOKEN` is rotated,
+4. Save, then **Run now** to verify. Expected: `HTTP 200` and
+   `{"status":"accepted"}`. That ack is deliberate — cron-job.org has a hard
+   30s timeout, while generation can take ~60s (Groq, then OpenRouter). The
+   route replies immediately and Next's `after()` keeps the function alive to
+   finish the work.
+5. Check the result at `/admin/autopost` → **Last cron run**, which records the
+   status, reason, duration and published slug. Repeat triggers inside 50
+   minutes show `skipped · min_interval` there by design.
+6. Credentials are stored by the cron service — if `CRON_TOKEN` is rotated,
    update it here and in Vercel/GitHub at the same time.
 
 The min-interval guard in `lib/autopost/pipeline.ts` means the external cron and
@@ -67,8 +64,9 @@ the GitHub fallback can both fire in the same hour without double-publishing.
 ## Kill switch
 
 Pause everything without a deploy: set `AUTOPOST_ENABLED=false` in Vercel and
-redeploy (env-only redeploy is fast). The route returns
-`{ status: "skipped", reason: "disabled" }`.
+redeploy (env-only redeploy is fast). The route still acks with
+`{"status":"accepted"}`; `/admin/autopost` → **Last cron run** shows
+`skipped · disabled`.
 
 The default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true`
 to enable the feature. Any value other than the literal string `"true"` keeps
@@ -90,9 +88,13 @@ Calendar a reminder for ~50 days after each rotation.
 
 - **Per-run logs:** Vercel → Logs, filter `kind:"autopost"`. Each run emits one
   JSON line with `status`, `reason`, `durationMs`, `slug` if published.
-- **Dashboard:** `/admin/autopost` shows the last 7 days of counters.
-- **External cron:** cron-job.org → job history shows the hourly HTTP status and
-  response body.
+- **Dashboard:** `/admin/autopost` shows the last 7 days of counters plus the
+  outcome of the most recent run. This is the place to check whether a run
+  published, skipped or errored.
+- **External cron:** cron-job.org → job history should show hourly
+  `Successful — 200 OK` with `{"status":"accepted"}`. A `Failed (timeout)` here
+  means the route itself stopped acking (e.g. a bad deploy), not that
+  generation was slow.
 - **GitHub Actions (fallback):** Actions tab → "Auto-post (throttled)" — only a
   few scheduled runs/day are expected; use `workflow_dispatch` for a one-off.
 
@@ -111,9 +113,10 @@ Calendar a reminder for ~50 days after each rotation.
   etc.) to see why the call failed.
 
 - **`maxDuration` is 90s on the cron route**, sized for a slow Groq call
-  (30s) + pipeline overhead. On Vercel Hobby plans this is silently
-  clamped to 60s — if you're on Hobby and start seeing timeouts, upgrade
-  to Pro or lower the provider timeout in `lib/autopost/generate.ts`.
+  (30s) + a slow OpenRouter fallback (30s) + pipeline overhead. On Vercel Hobby
+  plans this is silently clamped to 60s. `after()` inherits that budget, so if
+  a run is killed mid-generation there will be no **Last cron run** update —
+  lower the provider timeouts in `lib/autopost/generate.ts` or upgrade the plan.
 
 - **Attribution uses the article headline as link text** (`*Source:
   <headline>*`). We don't carry the publisher name on `NewsPost`. If you'd
@@ -130,7 +133,9 @@ Calendar a reminder for ~50 days after each rotation.
 | Facebook push always `err` | Token expired | Renew per "Facebook token renewal" above |
 | Telegram push always `err` | Bot was kicked from channel / token rotated | Re-invite bot; rotate `TELEGRAM_BOT_TOKEN` |
 | GH Actions runs not firing | GitHub drops/delays scheduled runs on idle repos | Rely on the external cron; trigger via `workflow_dispatch` for a one-off |
-| Every run returns `min_interval` | Two triggers are firing within 50 min | Expected when both crons fire; disable the GH `schedule` block to stop it |
+| Last run always `min_interval` | Two triggers are firing within 50 min | Expected when both crons fire; disable the GH `schedule` block to stop it |
+| Cron history shows `Failed (timeout)` | Route is not reaching its immediate ack (bad deploy, or auth failing before `after()`) | Redeploy; check `/admin/autopost` → Last cron run and the `kind:"autopost"` logs |
+| No **Last cron run** update after an ack | The background task was killed before finishing (Vercel duration clamp) | Check Vercel logs; lower provider timeouts or upgrade the plan |
 
 ## Rolling back
 

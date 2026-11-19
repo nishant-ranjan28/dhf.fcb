@@ -7,6 +7,20 @@ const REDIS_TOKEN =
 
 const TOPICS_KEY = "autopost:recent_topics";
 const STATS_KEY_PREFIX = "autopost:stats:";
+const LAST_RUN_KEY = "autopost:last_run";
+
+/** Outcome of the most recent cron invocation. The cron endpoint now replies
+ *  immediately and finishes its work via `after()`, so the result can no longer
+ *  be read from the cron service's response body. */
+export interface LastRunRecord {
+  at: string;
+  durationMs: number;
+  status: "published" | "skipped" | "error";
+  reason?: string;
+  slug?: string;
+  provider?: "groq" | "openrouter";
+  error?: string;
+}
 
 export interface DayStats {
   date: string;
@@ -33,6 +47,8 @@ export interface AutopostState {
   recordGenerated(): Promise<void>;
   recordEntities(entities: string[], at?: number): Promise<void>;
   recentEntities(days: number): Promise<string[]>;
+  recordLastRun(record: LastRunRecord): Promise<void>;
+  getLastRun(): Promise<LastRunRecord | null>;
   _reset?(): Promise<void>;
 }
 
@@ -119,12 +135,20 @@ function makeRedisState(client: Redis): AutopostState {
       await client.zremrangebyscore(TOPICS_KEY, 0, min);
       return (await client.zrange(TOPICS_KEY, min, "+inf", { byScore: true })) as string[];
     },
+    async recordLastRun(record) {
+      // 7 days — long enough to debug an hourly run, short enough to stay tidy.
+      await client.set(LAST_RUN_KEY, record, { ex: 60 * 60 * 24 * 7 });
+    },
+    async getLastRun() {
+      return (await client.get<LastRunRecord>(LAST_RUN_KEY)) ?? null;
+    },
   };
 }
 
 function makeMemoryState(): AutopostState {
   const daily = new Map<string, DayStats>();
   const entities = new Map<string, number>();
+  let lastRun: LastRunRecord | null = null;
   function dayOf(date: string): DayStats {
     let d = daily.get(date);
     if (!d) {
@@ -185,9 +209,16 @@ function makeMemoryState(): AutopostState {
       }
       return out;
     },
+    async recordLastRun(record) {
+      lastRun = record;
+    },
+    async getLastRun() {
+      return lastRun;
+    },
     async _reset() {
       daily.clear();
       entities.clear();
+      lastRun = null;
     },
   };
 }

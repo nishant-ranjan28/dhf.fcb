@@ -3,7 +3,10 @@ import { autopostState } from "@/lib/autopost/state";
 export const dynamic = "force-dynamic";
 
 export default async function AutopostDashboard() {
-  const days = await autopostState().recentStats(7);
+  const [days, lastRun] = await Promise.all([
+    autopostState().recentStats(7),
+    autopostState().getLastRun(),
+  ]);
   const total = days.reduce((acc, d) => ({
     published: acc.published + d.published,
     generated: acc.generated + d.generated,
@@ -15,6 +18,39 @@ export default async function AutopostDashboard() {
   return (
     <div className="px-3 py-4 text-white">
       <h1 className="text-xl font-bold mb-3">Auto-post stats — last 7 days</h1>
+
+      <section className="bg-ink-soft border border-ink-line rounded-lg p-3 mb-6">
+        <div className="text-[11px] uppercase tracking-wide text-ink-muted mb-1">
+          Last cron run
+        </div>
+        {lastRun ? (
+          <div className="text-sm">
+            <span className="text-ink-muted">
+              {new Date(lastRun.at).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}
+            </span>{" "}
+            · {lastRun.durationMs}ms ·{" "}
+            <span
+              className={
+                lastRun.status === "published"
+                  ? "text-green-400"
+                  : lastRun.status === "error"
+                    ? "text-red-400"
+                    : "text-white"
+              }
+            >
+              {lastRun.status}
+            </span>
+            {lastRun.reason ? ` · ${lastRun.reason}` : ""}
+            {lastRun.slug ? ` · ${lastRun.slug}` : ""}
+            {lastRun.provider ? ` · ${lastRun.provider}` : ""}
+            {lastRun.error ? ` · ${lastRun.error}` : ""}
+          </div>
+        ) : (
+          <div className="text-sm text-ink-muted">No runs recorded yet</div>
+        )}
+      </section>
 
       <section className="grid grid-cols-2 gap-2 mb-6">
         <Tile label="Published" value={total.published} />
