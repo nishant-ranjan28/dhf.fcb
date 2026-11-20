@@ -304,3 +304,48 @@ def render(script, voice_wav: Path, timings, out_mp4: Path, workdir: Path, seed=
     if res.returncode != 0:
         raise RuntimeError(f"ffmpeg failed:\n{res.stderr[-3000:]}")
     return out_mp4
+
+
+def render_card(script, media, out_jpg: Path):
+    """1080x1350 news card: free-licence photo on top, headline, source and photo credit below."""
+    cw, ch, ph = 1080, 1350, 760
+    img = Image.new("RGB", (cw, ch), NAVY)
+    img.paste(_cover(Image.open(media["path"]).convert("RGB"), cw, ph), (0, 0))
+    fade = Image.new("L", (cw, ph), 0)  # fade the photo into the panel
+    fd = ImageDraw.Draw(fade)
+    for y in range(ph - 260, ph):
+        fd.line([(0, y), (cw, y)], fill=int(255 * ((y - (ph - 260)) / 260) ** 1.5))
+    img.paste(Image.new("RGB", (cw, ph), NAVY), (0, 0), fade)
+    d = ImageDraw.Draw(img, "RGBA")
+    d.rectangle([0, 0, cw, 12], fill=GOLD)
+    credit = f"Photo: {media['credit']}"
+    cf = mont(22, 600)
+    while d.textlength(credit, font=cf) > cw - 120 and len(credit) > 20:
+        credit = credit[:-2] + "…"
+    tw = d.textlength(credit, font=cf)
+    d.rounded_rectangle([cw - tw - 52, 30, cw - 24, 74], radius=22, fill=(8, 16, 40, 170))
+    d.text((cw - 38, 52), credit, font=cf, fill=(255, 255, 255, 235), anchor="rm")
+    label = FORMATS.get(script.get("format"), "BARÇA NEWS")
+    lf = mont(36, 900)
+    lw = d.textlength(label, font=lf)
+    y = ph - 70
+    d.rounded_rectangle([60, y, 60 + lw + 48, y + 64], radius=32, fill=GOLD)
+    d.text((84, y + 32), label, font=lf, fill=NAVY, anchor="lm")
+    y += 96
+    words = script["title"].upper().split()
+    for size in (104, 94, 84, 76, 68):
+        hf = anton(size)
+        lines = _wrap(d, words, hf, cw - 120)
+        if len(lines) <= 4:
+            break
+    for ln in lines[:4]:
+        d.text((60, y), " ".join(ln), font=hf, fill="white")
+        y += int(size * 1.12)
+    d.rectangle([60, y + 30, 220, y + 42], fill=GOLD)
+    foot = ch - 64
+    if script.get("source_name"):
+        d.text((60, foot), f"SOURCE: {script['source_name'].upper()}"[:60], font=mont(26, 700),
+               fill=(255, 255, 255, 215), anchor="lm")
+    d.text((cw - 60, foot), config.PAGE_HANDLE, font=mont(26, 800), fill=GOLD, anchor="rm")
+    img.save(out_jpg, quality=92)
+    return out_jpg

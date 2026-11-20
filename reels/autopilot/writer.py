@@ -161,9 +161,15 @@ def _material_text(kind, material):
     return "\n\n".join(f"[From the Wikipedia article '{p['title']}']\n{p['text']}" for p in material["passages"])
 
 
-def _write(kind, material, count, avoid):
+def _write(kind, material, count, avoid, photo=False):
     today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
-    if kind == "news":
+    if photo:
+        ask = (f"Write {count} different PHOTO POSTS, format 'news', each about ONE story from the material "
+               "that is not in the recent titles. A photo post is a headline card plus a short caption, so "
+               "write exactly 3 or 4 short lines: line 1 says what happened, the next lines add the key "
+               "details, and the last line asks fans a question. Give line 1 an 'entity' image_query naming "
+               "the main person or place of the story.")
+    elif kind == "news":
         ask = (f"Write {count} different videos, format 'news' or 'match', each about ONE story from the "
                "material. Pick the stories with the most detail and the most interest for Barça fans. Use "
                "'match' only for a fixture or result listed in MATCH DATA.")
@@ -269,3 +275,31 @@ def _tidy(v):
             tags.append(t)
     v["hashtags"] = tags[:6]
     return v
+
+
+def write_photo_posts(news, count, recent_titles=(), squad=None):
+    """Short, fact-checked news posts to go out with a headline card image."""
+    if count <= 0 or not news:
+        return []
+    material = {"news": news, "matches": {}, "squad": squad or {}}
+    out = []
+    try:
+        drafts = _write("news", material, count, recent_titles, photo=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[writer] photo batch failed: {e}")
+        return []
+    for v in drafts:
+        v["format"] = "news"
+        if _verify_photo(v, material):
+            out.append(v)
+    return out[:count]
+
+
+def _verify_photo(video, material):
+    """Same check as videos. A photo post is short, so pad the check (not the post) to four lines."""
+    pad = {"say": "Follow the page for more.", "_pad": True}
+    tmp = dict(video, segments=video["segments"] + [pad] * max(0, 4 - len(video["segments"])))
+    if not _verify(tmp, "news", material):
+        return False
+    video["segments"] = [s for s in tmp["segments"] if not s.get("_pad")]
+    return len(video["segments"]) >= 2

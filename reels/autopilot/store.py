@@ -87,8 +87,9 @@ def prune(state, keep_days=4):
     for it in state["items"]:
         done = it["status"] in ("posted", "rejected", "failed", "expired")
         if done and datetime.fromisoformat(it["created"]) < cutoff:
-            if it.get("video"):
-                delete_video(it["video"])
+            for name in (it.get("video"), it.get("image")):
+                if name:
+                    delete_video(name)
             history.append(it["script"]["title"])
         else:
             kept.append(it)

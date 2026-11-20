@@ -49,6 +49,20 @@ def publish_reel(video: Path, description: str) -> str:
     return video_id
 
 
+def publish_photo(image: Path, caption: str) -> str:
+    """Post a photo to the Page. Returns the post id."""
+    with open(image, "rb") as fh:
+        r = requests.post(_graph(f"{config.FB_PAGE_ID}/photos"), timeout=120,
+                          data={"caption": caption, "access_token": config.FB_PAGE_TOKEN},
+                          files={"source": (image.name, fh, "image/jpeg")})
+    data = _check(r)
+    return data.get("post_id") or data["id"]
+
+
+def post_url(post_id):
+    return f"https://www.facebook.com/{post_id}"
+
+
 def comment(object_id: str, message: str) -> str:
     """Comment on a post or Reel as the Page."""
     r = requests.post(_graph(f"{object_id}/comments"), timeout=60,

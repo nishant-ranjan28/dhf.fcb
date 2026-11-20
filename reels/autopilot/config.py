@@ -28,18 +28,25 @@ FOOTBALL_DATA_TEAM_ID = int(env("FOOTBALL_DATA_TEAM_ID", "81"))  # 81 = FC Barce
 
 # --- Content -----------------------------------------------------------------
 DAILY_VIDEOS = int(env("DAILY_VIDEOS", "4"))
-MAX_POSTS_PER_DAY = int(env("MAX_POSTS_PER_DAY", "5"))
+MAX_POSTS_PER_DAY = int(env("MAX_POSTS_PER_DAY", "6"))
 LANGUAGE = env("LANGUAGE", "English")
 CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5")
 NEWS_QUERIES = [q.strip() for q in env(
     "NEWS_QUERIES", '"FC Barcelona"|Barca Flick|Barcelona La Liga').split("|") if q.strip()]
-# Feeds with real article summaries. Scripts are only written from these, never from bare headlines.
+# Feeds with real article text. Scripts are only written from these, never from bare headlines.
+# A leading * marks a general football feed: only its stories that mention the club are used.
+# Checked 20 Nov 2026: the Marca and old Mundo Deportivo URLs were dead or blocked, the Guardian
+# club feed is low-volume; the three at the top carry most of the fresh stories.
 RICH_FEEDS = [tuple(x.strip() for x in f.split("=", 1)) for f in env(
     "RICH_FEEDS",
-    "The Guardian=https://www.theguardian.com/football/barcelona/rss|"
+    "Mundo Deportivo=https://www.mundodeportivo.com/rss/futbol/fc-barcelona.xml|"
+    "Barca Blaugranes=https://www.barcablaugranes.com/rss/index.xml|"
+    "Barca Universal=https://barcauniversal.com/feed/|"
     "BBC Sport=https://feeds.bbci.co.uk/sport/football/teams/barcelona/rss.xml|"
-    "Marca=https://e00-marca.uecdn.es/rss/futbol/barcelona.xml|"
-    "Mundo Deportivo=https://www.mundodeportivo.com/feed/rss/fc-barcelona").split("|") if "=" in f]
+    "The Guardian=https://www.theguardian.com/football/barcelona/rss|"
+    "*Football España=https://www.football-espana.net/feed|"
+    "*Get Football News Spain=https://www.getfootballnewsspain.com/feed/").split("|") if "=" in f]
+DAILY_PHOTOS = int(env("DAILY_PHOTOS", "2"))   # news photo posts drafted each morning
 # Wikipedia articles that fact / stats videos are drawn from (one random passage each per video).
 FACT_PAGES = [p.strip() for p in env(
     "FACT_PAGES", "FC Barcelona|History of FC Barcelona|List of FC Barcelona records and statistics|Camp Nou|"

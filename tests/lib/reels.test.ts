@@ -140,6 +140,33 @@ describe("/api/cron/reels", () => {
     expect(await r.json()).toEqual({ ok: true, id: "7", commented: false });
   });
 
+  it("posts a photo card with its caption and comments on the post", async () => {
+    const calls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === ASSET) return new Response(new Uint8Array([9, 9]));
+      if (url.endsWith("/123/photos")) {
+        const form = init?.body as FormData;
+        expect(form.get("caption")).toBe("cap");
+        expect((form.get("source") as Blob).size).toBe(2);
+        return res({ id: "555", post_id: "123_777" });
+      }
+      if (url.endsWith("/123_777/comments")) return res({ id: "c1" });
+      return res("unexpected", 500);
+    });
+    const r = await POST(req({ action: "photo", imageUrl: ASSET, caption: "cap", comment: "more" }));
+    expect(await r.json()).toEqual({ ok: true, id: "123_777", commented: true });
+    expect(calls).toHaveLength(3);
+  });
+
+  it("refuses a photo that is not a release asset of this repo", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const r = await POST(req({ action: "photo", imageUrl: "https://evil.example/a.jpg", caption: "c" }));
+    expect(r.status).toBe(502);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("fails cleanly when Facebook is not configured", async () => {
     delete process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
     const r = await POST(req({ action: "publish", videoUrl: ASSET, description: "d" }));

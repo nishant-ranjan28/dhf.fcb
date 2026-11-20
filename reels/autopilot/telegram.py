@@ -41,11 +41,14 @@ def send_draft(item, video_path: Path | None):
                 (f"\n📸 {_esc('; '.join(s['credits']))}" if s.get("credits") else "\n📸 no photos found")
         cap = (f"{head}\n\n{_esc(s['fb_caption'])}\n{' '.join(s['hashtags'])}{extra[:420]}\n\n"
                "Reply to this video with a 🎙 voice note to use your own voice.")
+        photo = item.get("kind") == "photo"
         with open(video_path, "rb") as fh:
-            msg = _api("sendVideo", data={"chat_id": config.TELEGRAM_CHAT_ID, "caption": cap[:1024],
-                                          "parse_mode": "HTML", "supports_streaming": "true",
-                                          "reply_markup": _buttons(item["id"])},
-                       files={"video": (video_path.name, fh, "video/mp4")})
+            msg = _api("sendPhoto" if photo else "sendVideo",
+                       data={"chat_id": config.TELEGRAM_CHAT_ID,
+                             "caption": (cap.split("\n\nReply to this video")[0] if photo else cap)[:1024],
+                             "parse_mode": "HTML", "supports_streaming": "true",
+                             "reply_markup": _buttons(item["id"])},
+                       files={"photo" if photo else "video": (video_path.name, fh)})
     else:
         text = (f"{head}\n\n🎙 <b>Record this script and reply with a voice note:</b>\n\n"
                 f"{_esc(_script_text(item))}\n\n<i>Caption:</i> {_esc(s['fb_caption'])}")

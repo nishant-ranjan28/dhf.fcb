@@ -39,9 +39,9 @@ def video_url(name):
 
 def open_drafts(items, date_label):
     """Create the issue for a batch of drafts and tag each item with its issue and number."""
-    parts = [f"{len(items)} draft Reel(s) for the Facebook Page. Nothing is posted until you approve it.\n\n"
+    parts = [f"{len(items)} draft post(s) for the Facebook Page (Reels and photo posts). Nothing is posted until you approve it.\n\n"
              "**Reply with a comment:** `approve all`, `approve 1 3`, or `reject 2`.\n"
-             f"Approved Reels go out one per slot ({SLOTS}). News drafts not approved within 2 days are dropped.\n"]
+             f"Approved posts go out one per slot ({SLOTS}). News drafts not approved within 2 days are dropped.\n"]
     for n, it in enumerate(items, 1):
         s = it["script"]
         lines = "\n".join(f"> {seg['say']}" for seg in s["segments"])
@@ -49,6 +49,12 @@ def open_drafts(items, date_label):
         if s.get("source_name"):
             extra.append(f"Source: {s['source_name']}")
         extra.append("Photos: " + ("; ".join(s["credits"]) if s.get("credits") else "none found"))
+        if it.get("kind") == "photo":
+            parts.append(f"---\n### {n}. {_quiet(s['title'])}  `photo post`\n"
+                         f"![card]({video_url(it['image'])})\n\n**Post text:**\n{_quiet(lines)}\n\n"
+                         f"> {_quiet(s['fb_caption'])} {_quiet(' '.join(s['hashtags']))}\n\n"
+                         f"<sub>{_quiet(' · '.join(extra))}</sub>\n")
+            continue
         parts.append(f"---\n### {n}. {_quiet(s['title'])}  `{s['format']}`\n"
                      f"▶️ **[Watch the draft]({video_url(it['video'])})**\n\n{_quiet(lines)}\n\n"
                      f"**Caption:** {_quiet(s['fb_caption'])} {_quiet(' '.join(s['hashtags']))}\n\n"

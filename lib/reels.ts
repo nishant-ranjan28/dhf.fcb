@@ -219,3 +219,58 @@ export async function publishReel(opts: {
     return fail(message(err));
   }
 }
+
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+/** Download a news card image from this repo's releases and post it to the Page. */
+export async function publishPhoto(opts: {
+  imageUrl: string;
+  caption: string;
+  comment?: string;
+}): Promise<ReelsResult<{ id: string; commented: boolean }>> {
+  const pageId = process.env.FACEBOOK_PAGE_ID?.trim();
+  const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+  if (!pageId || !token) return fail("Facebook not configured");
+  if (!opts.imageUrl.startsWith(allowedVideoPrefix())) return fail("imageUrl is not an allowed release asset");
+  try {
+    const dl = await fetch(opts.imageUrl, { signal: AbortSignal.timeout(30_000) });
+    if (!dl.ok) return fail(`image download HTTP ${dl.status}`);
+    const image = Buffer.from(await dl.arrayBuffer());
+    if (image.length === 0 || image.length > MAX_IMAGE_BYTES) return fail(`image size ${image.length} not accepted`);
+
+    const form = new FormData();
+    form.append("caption", opts.caption);
+    form.append("access_token", token);
+    form.append("source", new Blob([new Uint8Array(image)], { type: "image/jpeg" }), "card.jpg");
+    const res = await fetch(`${GRAPH}/${pageId}/photos`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(45_000),
+    });
+    const text = await res.text();
+    let json: { id?: string; post_id?: string; error?: unknown } = {};
+    try {
+      json = JSON.parse(text) as typeof json;
+    } catch {
+      /* fall through to the status check */
+    }
+    if (!res.ok || json.error) {
+      return fail(`Graph photos HTTP ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 300)}`);
+    }
+    const id = json.post_id ?? json.id ?? "";
+    if (!id) return fail("Graph did not return a post id");
+
+    let commented = false;
+    if (opts.comment) {
+      try {
+        await graph(`${id}/comments`, { message: opts.comment, access_token: token });
+        commented = true;
+      } catch (err) {
+        console.warn("[reels] link comment skipped:", message(err));
+      }
+    }
+    return { ok: true, id, commented };
+  } catch (err) {
+    return fail(message(err));
+  }
+}
