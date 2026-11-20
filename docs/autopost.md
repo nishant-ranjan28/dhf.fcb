@@ -129,14 +129,29 @@ Posts are public, 500 characters max (title + URL), and no approval is needed.
 
 1. In the existing **BarcaPulse Auto-post** Meta app, add the **Threads API**
    product and link it to the Threads profile that should post.
-2. Generate a Threads OAuth user token with `threads_configure` and
-   `threads_content_publish`. Exchange it for the long-lived (60-day) token:
-   `GET https://graph.threads.net/oauth/access_token?grant_type=threads_exchange_token&client_id=<app-id>&client_secret=<app-secret>&access_token=<short-token>`.
-3. Set `THREADS_ACCESS_TOKEN` (and optionally `THREADS_USER_ID`, otherwise the
+2. Use cases → **Access the Threads API → Settings**: add the redirect URI
+   `https://dhf-fcb.iamnishant.in/callback` under **Valid OAuth Redirect URIs**.
+   Also fill the **Deauthorize callback URL** and **Data Deletion Requests URL**
+   with the same value — Meta refuses to save otherwise. Add the posting profile
+   as a **Threads Tester** under App roles → Roles and accept the invite in
+   Threads → Settings → Account → Website permissions → Invites.
+3. Open the authorize URL in a browser (you must be logged into the Threads
+   profile):
+   `https://threads.net/oauth/authorize?client_id=<threads-app-id>&redirect_uri=https%3A%2F%2Fdhf-fcb.iamnishant.in%2Fcallback&response_type=code&scope=threads_basic,threads_content_publish`
+   Approve the screen; the redirect 404s but the `code` is in the URL.
+4. Exchange the code for a short-lived token:
+   `POST https://graph.threads.net/oauth/access_token` with `client_id`,
+   `client_secret` (**Threads app secret**, not the Facebook one),
+   `grant_type=authorization_code`, `redirect_uri`, `code`.
+5. Upgrade to a long-lived (60-day) token:
+   `GET https://graph.threads.net/access_token?grant_type=th_exchange_token&client_secret=<threads-app-secret>&access_token=<short-token>`.
+6. Set `THREADS_ACCESS_TOKEN` (and optionally `THREADS_USER_ID`, otherwise the
    code resolves it from `/me`), then redeploy.
 
 Text posts only (title + URL, 500 chars). Standard Access is enough because you
-own the account.
+own the account. The code refreshes the long-lived token on every post (Meta
+allows this once it is 24h old), so a single env var keeps working indefinitely
+as long as the app is used at least once every 60 days.
 
 ## Reddit setup
 

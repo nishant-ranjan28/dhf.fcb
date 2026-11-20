@@ -15,6 +15,10 @@ function configure() {
 function fetchMock() {
   return vi.fn(async (url: string | URL | Request) => {
     const u = String(url);
+    if (u.includes("refresh_access_token")) {
+      // Meta rejects refresh of tokens younger than 24h — fall back to the original.
+      return new Response(JSON.stringify({ error: { message: "too new" } }), { status: 400 });
+    }
     if (u.includes("/me?")) {
       return new Response(JSON.stringify({ id: "me-user" }), { status: 200 });
     }
@@ -40,7 +44,7 @@ describe("postToThreads", () => {
     expect(r.error).toMatch(/not configured/i);
   });
 
-  it("creates then publishes a text thread", async () => {
+  it("refreshes, creates then publishes a text thread", async () => {
     configure();
     const mock = fetchMock();
     vi.stubGlobal("fetch", mock);
@@ -48,18 +52,40 @@ describe("postToThreads", () => {
     expect(r).toEqual({ ok: true, id: "post-1" });
 
     const calls = mock.mock.calls as unknown as [string, RequestInit][];
-    expect(calls).toHaveLength(2);
-    const [createUrl, createInit] = calls[0];
+    expect(calls).toHaveLength(3);
+    expect(String(calls[0][0])).toContain("refresh_access_token");
+
+    const [createUrl, createInit] = calls[1];
     expect(String(createUrl)).toBe("https://graph.threads.net/v1.0/user-1/threads");
     const createBody = new URLSearchParams(String(createInit.body));
     expect(createBody.get("media_type")).toBe("TEXT");
     expect(createBody.get("text")).toBe("Yamal signs\n\nhttps://s.com/blog/yamal");
     expect(createBody.get("access_token")).toBe("token123");
 
-    const [publishUrl, publishInit] = calls[1];
+    const [publishUrl, publishInit] = calls[2];
     expect(String(publishUrl)).toBe("https://graph.threads.net/v1.0/user-1/threads_publish");
     const publishBody = new URLSearchParams(String(publishInit.body));
     expect(publishBody.get("creation_id")).toBe("creation-1");
+  });
+
+  it("uses a refreshed token when Meta returns one", async () => {
+    configure();
+    const mock = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("refresh_access_token")) {
+        return new Response(JSON.stringify({ access_token: "fresh" }), { status: 200 });
+      }
+      if (u.endsWith("/threads")) {
+        return new Response(JSON.stringify({ id: "creation-1" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: "post-1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", mock);
+    const r = await postToThreads({ title: "hi", url: "https://s.com/x" });
+    expect(r.ok).toBe(true);
+    const calls = mock.mock.calls as unknown as [string, RequestInit][];
+    const createBody = new URLSearchParams(String(calls[1][1].body));
+    expect(createBody.get("access_token")).toBe("fresh");
   });
 
   it("resolves the user id from /me when THREADS_USER_ID is absent", async () => {
@@ -69,8 +95,8 @@ describe("postToThreads", () => {
     const r = await postToThreads({ title: "hi", url: "https://s.com/x" });
     expect(r.ok).toBe(true);
     const calls = mock.mock.calls as unknown as [string][];
-    expect(String(calls[0][0])).toContain("/me?fields=id");
-    expect(String(calls[1][0])).toContain("/me-user/threads");
+    expect(String(calls[1][0])).toContain("/me?fields=id");
+    expect(String(calls[2][0])).toContain("/me-user/threads");
   });
 
   it("returns ok=false when creation fails", async () => {

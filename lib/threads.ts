@@ -23,6 +23,23 @@ async function httpError(res: Response): Promise<string> {
   return `HTTP ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 300)}`;
 }
 
+/** Refresh a long-lived token so a single env var keeps working past 60 days.
+ *  Meta only allows refresh once the token is 24h old; before then this returns
+ *  the original token unchanged. */
+async function refreshToken(token: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${encodeURIComponent(token)}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return token;
+    const data = (await res.json()) as { access_token?: string };
+    return data.access_token ?? token;
+  } catch {
+    return token;
+  }
+}
+
 /** Resolve the user id from env, or from /me using a long-lived token. */
 async function userId(token: string): Promise<string | undefined> {
   const configured = process.env.THREADS_USER_ID?.trim();
@@ -39,9 +56,10 @@ export async function postToThreads(opts: {
   title: string;
   url: string;
 }): Promise<ThreadsResult> {
-  const token = process.env.THREADS_ACCESS_TOKEN?.trim();
-  if (!token) return { ok: false, error: "Threads not configured" };
+  const configuredToken = process.env.THREADS_ACCESS_TOKEN?.trim();
+  if (!configuredToken) return { ok: false, error: "Threads not configured" };
   try {
+    const token = await refreshToken(configuredToken);
     const uid = await userId(token);
     if (!uid) return { ok: false, error: "Threads user id could not be resolved" };
 
