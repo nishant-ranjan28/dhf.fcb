@@ -41,7 +41,15 @@ export type PipelineResult =
   | { status: "skipped"; reason: SkipReason; diagnostics?: GateDiagnostics }
   | { status: "error"; error: string };
 
-export type AnnounceChannel = "telegram" | "facebook" | "indexnow" | "x" | "bluesky";
+export type AnnounceChannel =
+  | "telegram"
+  | "facebook"
+  | "indexnow"
+  | "x"
+  | "bluesky"
+  | "mastodon"
+  | "threads"
+  | "reddit";
 
 export interface AnnounceResults {
   telegram: "ok" | "err" | "skipped";
@@ -49,6 +57,9 @@ export interface AnnounceResults {
   indexnow: "ok" | "err" | "skipped";
   x: "ok" | "err" | "skipped";
   bluesky: "ok" | "err" | "skipped";
+  mastodon: "ok" | "err" | "skipped";
+  threads: "ok" | "err" | "skipped";
+  reddit: "ok" | "err" | "skipped";
   /** Provider error text for any channel that returned "err". Kept inline so
    *  the cron ack / lastRun shows *why* a platform failed (e.g. an expired
    *  Facebook token) without digging through Vercel logs. */

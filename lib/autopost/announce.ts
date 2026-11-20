@@ -3,6 +3,9 @@ import { isFacebookConfigured, postToFacebookPage } from "@/lib/facebook";
 import { isIndexNowConfigured, submitToIndexNow } from "@/lib/indexnow";
 import { isXConfigured, postToX, formatTweet } from "@/lib/x";
 import { isBlueskyConfigured, postToBluesky } from "@/lib/bluesky";
+import { isMastodonConfigured, postToMastodon } from "@/lib/mastodon";
+import { isThreadsConfigured, postToThreads } from "@/lib/threads";
+import { isRedditConfigured, postToReddit } from "@/lib/reddit";
 import type { BlogPost } from "@/lib/blog/types";
 import type { AnnounceChannel, AnnounceResults } from "./types";
 
@@ -22,7 +25,7 @@ export async function announce(post: BlogPost, siteUrl: string): Promise<Announc
   const url = `${siteUrl}/blog/${post.slug}`;
   const skipped = Promise.resolve("skipped" as const);
   const errors: Partial<Record<AnnounceChannel, string>> = {};
-  const [tg, fb, inow, x, bsky] = await Promise.all([
+  const [tg, fb, inow, x, bsky, masto, threads, reddit] = await Promise.all([
     isTelegramConfigured()
       ? sendTelegramMessage({ text: formatBlogPost(post, siteUrl) }).then(report("telegram", errors))
       : skipped,
@@ -45,6 +48,15 @@ export async function announce(post: BlogPost, siteUrl: string): Promise<Announc
           imageUrl: post.coverImage,
         }).then(report("bluesky", errors))
       : skipped,
+    isMastodonConfigured()
+      ? postToMastodon({ title: post.title, url }).then(report("mastodon", errors))
+      : skipped,
+    isThreadsConfigured()
+      ? postToThreads({ title: post.title, url }).then(report("threads", errors))
+      : skipped,
+    isRedditConfigured()
+      ? postToReddit({ title: post.title, url }).then(report("reddit", errors))
+      : skipped,
   ]);
   return {
     telegram: tg,
@@ -52,6 +64,9 @@ export async function announce(post: BlogPost, siteUrl: string): Promise<Announc
     indexnow: inow,
     x,
     bluesky: bsky,
+    mastodon: masto,
+    threads,
+    reddit,
     ...(Object.keys(errors).length > 0 ? { errors } : {}),
   };
 }

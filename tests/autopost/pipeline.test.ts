@@ -52,7 +52,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "disabled" });
@@ -62,7 +62,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "no_eligible_news" });
@@ -72,13 +72,13 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "ok", facebook: "ok", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "ok", facebook: "ok", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r.status).toBe("published");
     if (r.status === "published") {
       expect(r.slug).toBe("yamal-commits-future-to-barcelona");
-      expect(r.announces).toEqual({ telegram: "ok", facebook: "ok", indexnow: "skipped", x: "skipped", bluesky: "skipped" });
+      expect(r.announces).toEqual({ telegram: "ok", facebook: "ok", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" });
     }
     expect(await autopostState().publishedToday()).toBe(1);
   });
@@ -96,7 +96,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem({ link: "https://bbc.co.uk/article" })],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r.status).toBe("published");
@@ -109,7 +109,7 @@ describe("runPipeline", () => {
       fetchNews: async () => [newsItem()],
       generate: async () =>
         ({ ok: true, draft: { ...GOOD_DRAFT, body: "too short" } }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r.status).toBe("skipped");
@@ -126,7 +126,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "day_cap_reached" });
@@ -137,7 +137,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "manual_cooldown" });
@@ -148,7 +148,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "min_interval" });
@@ -164,7 +164,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r.status).toBe("published");
@@ -188,7 +188,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate,
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r, JSON.stringify(r)).toMatchObject({ status: "published" });
@@ -206,7 +206,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate,
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r, JSON.stringify(r)).toMatchObject({ status: "published" });
@@ -217,7 +217,7 @@ describe("runPipeline", () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],
       generate: async () => ({ ok: false, reason: "all_providers_failed" }),
-      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped" }),
+      announceFn: async () => ({ telegram: "skipped", facebook: "skipped", indexnow: "skipped", x: "skipped", bluesky: "skipped", mastodon: "skipped", threads: "skipped", reddit: "skipped" }),
       siteUrl: "https://x.com",
     });
     expect(r).toEqual({ status: "skipped", reason: "all_providers_failed" });

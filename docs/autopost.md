@@ -4,7 +4,10 @@ An external cron (cron-job.org) triggers `POST /api/cron/auto-post` every hour.
 A GitHub Actions schedule remains as a fallback and for manual runs. The route
 picks an uncovered news headline, asks Groq (with OpenRouter fallback) to write
 an original post, runs four quality gates, persists the post, then pushes to
-Telegram and the Facebook Page.
+Telegram, Facebook, Bluesky, Mastodon, Threads, and Reddit. Channels are optional:
+a channel is skipped when its env vars are absent, and a failed channel is
+reported in `announces.errors` without blocking the others. X/Twitter is left
+disabled because its API now requires paid credits.
 
 > Why not GitHub Actions alone? GitHub's scheduler is best-effort and drops most
 > high-frequency runs on low-activity repos. This repo's history shows only
@@ -19,6 +22,10 @@ Telegram and the Facebook Page.
 | `OPENROUTER_API_KEY` | https://openrouter.ai/ → API keys | Fallback when Groq fails. Model via `OPENROUTER_MODEL` (default `openai/gpt-oss-20b`) |
 | `FACEBOOK_PAGE_ID` | FB Page → About → Page ID | Numeric |
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | `GET /me/accounts` with a Meta app token | Page token — see Facebook setup below |
+| `BLUESKY_IDENTIFIER` / `BLUESKY_APP_PASSWORD` | bsky.app → Settings → App Passwords | Optional, free |
+| `MASTODON_INSTANCE` / `MASTODON_ACCESS_TOKEN` | Your instance → Preferences → Development → New application (`write:statuses`) | Optional, free — see below |
+| `THREADS_ACCESS_TOKEN` (+ optional `THREADS_USER_ID`) | Threads API OAuth on the Meta app (`threads_content_publish`) | Optional, free — see below |
+| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` / `REDDIT_USERNAME` / `REDDIT_PASSWORD` / `REDDIT_SUBREDDIT` | https://www.reddit.com/prefs/apps → **script** | Optional, free — check subreddit rules |
 | `CRON_TOKEN` | `openssl rand -hex 32` | Random secret; also set as GH repo secret |
 | `AUTOPOST_ENABLED` | `"true"` to start, anything else to pause | Kill switch. Default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true` to enable the feature. |
 | `SITE_URL` | `https://dhf-fcb.iamnishant.in` | Already set; used for post links |
@@ -106,6 +113,42 @@ starts failing, check `announces.errors.facebook` in the cron ack first.
 Graph API version is pinned in `lib/facebook.ts`. `v21.0` is retired
 **21 Jan 2027**, so the code uses `v27.0` (current as of Nov 2026). Bump it when
 Meta retires that version.
+
+## Mastodon setup
+
+1. Create/login on an instance (e.g. `mastodon.social`) with a bot-friendly
+   account.
+2. **Preferences → Development → New application**: name it `BarcaPulse`, scope
+   `write:statuses`, then copy the generated access token.
+3. Set `MASTODON_INSTANCE=mastodon.social` (bare hostname; a full URL is also
+   accepted) and `MASTODON_ACCESS_TOKEN`, then redeploy.
+
+Posts are public, 500 characters max (title + URL), and no approval is needed.
+
+## Threads setup
+
+1. In the existing **BarcaPulse Auto-post** Meta app, add the **Threads API**
+   product and link it to the Threads profile that should post.
+2. Generate a Threads OAuth user token with `threads_configure` and
+   `threads_content_publish`. Exchange it for the long-lived (60-day) token:
+   `GET https://graph.threads.net/oauth/access_token?grant_type=threads_exchange_token&client_id=<app-id>&client_secret=<app-secret>&access_token=<short-token>`.
+3. Set `THREADS_ACCESS_TOKEN` (and optionally `THREADS_USER_ID`, otherwise the
+   code resolves it from `/me`), then redeploy.
+
+Text posts only (title + URL, 500 chars). Standard Access is enough because you
+own the account.
+
+## Reddit setup
+
+1. https://www.reddit.com/prefs/apps → **Create another app…** → type **script**.
+   Note the client id (under the app name) and client secret.
+2. Use the Reddit account that will own the posts as `REDDIT_USERNAME` /
+   `REDDIT_PASSWORD`, and set `REDDIT_SUBREDDIT` to the plain subreddit name
+   (e.g. `Barcelona`, not `/r/Barcelona`).
+3. Set all five vars in Vercel and redeploy.
+
+Reddit submits link posts with the post URL. Check the target subreddit's
+self-promotion rules first — repeated posting can get an account banned.
 
 ## Monitoring
 
