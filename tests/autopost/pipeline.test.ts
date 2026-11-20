@@ -104,6 +104,29 @@ describe("runPipeline", () => {
     expect(saved?.coverImage).toBe("https://cdn.bbc.co.uk/hero.jpg");
   });
 
+  it("stores announcement permalinks as social posts on the published article", async () => {
+    const postUrl = "https://mastodon.social/@BarcaPulse/123456789";
+    const r = await runPipeline({
+      fetchNews: async () => [newsItem()],
+      generate: async () => ({ ok: true, draft: GOOD_DRAFT }),
+      announceFn: async () => ({
+        telegram: "ok",
+        facebook: "skipped",
+        indexnow: "skipped",
+        x: "skipped",
+        bluesky: "skipped",
+        mastodon: "ok",
+        threads: "skipped",
+        reddit: "skipped",
+        postUrls: { mastodon: postUrl },
+      }),
+      siteUrl: "https://x.com",
+    });
+    expect(r.status).toBe("published");
+    const saved = await blogStore().get((r as { status: "published"; slug: string }).slug);
+    expect(saved?.socialPosts).toEqual([{ platform: "mastodon", url: postUrl }]);
+  });
+
   it("skips when word count gate fails", async () => {
     const r = await runPipeline({
       fetchNews: async () => [newsItem()],

@@ -13,10 +13,11 @@ export interface GateDiagnostics {
   bannedPhrase?: string;
 }
 
-// Floor lowered from 600 to 500 after diagnostics showed Gemini Flash
-// consistently producing 550-600 words. AdSense accepts 500-word articles
-// routinely; the original 600 was a self-imposed conservative bar.
-export function explainWordCount(body: string, min = 500): { ok: boolean; count: number } {
+// Short, image-led posts are the product decision now: the prompt targets
+// 300-420 words, so a 260-word floor leaves room for markdown stripping and
+// tight drafts without rejecting every hour. The original 500-bar came from an
+// older long-form experiment.
+export function explainWordCount(body: string, min = 260): { ok: boolean; count: number } {
   const cleaned = body
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/[#*_>`~\[\]()!-]/g, " ");
@@ -24,7 +25,7 @@ export function explainWordCount(body: string, min = 500): { ok: boolean; count:
   return { ok: count >= min, count };
 }
 
-export function wordCountGate(body: string, min = 500): boolean {
+export function wordCountGate(body: string, min = 260): boolean {
   return explainWordCount(body, min).ok;
 }
 

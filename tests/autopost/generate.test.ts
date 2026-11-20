@@ -72,6 +72,18 @@ describe("generateDraft — Groq only", () => {
     expect(body.response_format).toBeUndefined();
   });
 
+  it("asks for short, sectioned posts instead of 700-word essays", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    const fetchMock = mockGroq(groqJsonPayload(VALID));
+    vi.stubGlobal("fetch", fetchMock);
+    await generateDraft(ITEM);
+    const [, init] = fetchMock.mock.calls[0] as [unknown, RequestInit];
+    const prompt = String((JSON.parse(String(init.body)) as { messages: { content: string }[] }).messages[0].content);
+    expect(prompt).toContain("300-420 words");
+    expect(prompt).toContain("## Quick take");
+    expect(prompt).not.toContain("AT LEAST 700");
+  });
+
   it("accepts JSON wrapped in prose or code fences", async () => {
     process.env.GROQ_API_KEY = "test-groq";
     const wrapped = `Here is the post:\n\n\`\`\`json\n${JSON.stringify(VALID)}\n\`\`\``;

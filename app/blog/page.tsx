@@ -13,9 +13,9 @@ import { viewStore } from "@/lib/blog/views";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "BarcaPulse Blog — Long-form Barca writing",
+  title: "BarcaPulse Blog — Short Barca reads",
   description:
-    "Original tactical analysis, opinion, and longform on FC Barcelona and the FIFA World Cup.",
+    "Short, image-led Barcelona and FIFA stories, with quick analysis and the latest reaction.",
 };
 
 export default async function BlogPage() {

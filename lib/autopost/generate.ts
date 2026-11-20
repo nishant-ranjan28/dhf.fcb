@@ -60,18 +60,26 @@ A news story has just broken. Source title: "${item.source.title}".
 Source summary: "${item.source.content.slice(0, 600)}".
 Source URL: ${item.source.link ?? "(no link)"}
 
-Write an ORIGINAL blog post about this story. Rules:
-- AT LEAST 700 words. This is a strict minimum — short posts will be rejected. Aim for 800-1000 words across 5-7 paragraphs.
-- Markdown body.
-- Add ANALYSIS and CONTEXT — what this means for Barcelona / the player / the season. Do NOT just summarize the source.
+Write an ORIGINAL, SHORT BarcaPulse post about this story. Rules:
+- 300-420 words total. Strictly NO long essays — dense, skimmable copy wins.
+- Markdown body with EXACTLY these four H2 sections, in this order:
+  ## Quick take
+  Two sentences, max 45 words. Lead with the single most important fact.
+  ## What happened
+  Two short paragraphs, 50-70 words each. Max three sentences per paragraph.
+  ## Why it matters
+  Three bullets, 20-30 words each. Add real analysis for Barcelona / the player / the season — do NOT just summarize the source.
+  ## What's next
+  One short paragraph, max 60 words. Give a concrete thing to watch.
 - Confident, opinionated voice. No "as an AI" disclaimers.
 - Use the entities ${JSON.stringify(item.entities)} naturally in the body — they must each appear verbatim at least once (e.g. if "Barcelona" is in the list, use the word "Barcelona", not just "Barça" or "the club").
+- Do NOT invent social-media links or embed codes. Leave those to the app.
 
 Return ONLY a JSON object (no markdown fences, no prose around it) with this shape:
 {
-  "title": "string — your own headline, not the source's",
-  "body": "string — markdown body, 700-1000 words (minimum 700)",
-  "excerpt": "string — 1-line summary, under 200 chars",
+  "title": "string — your own short headline, not the source's",
+  "body": "string — markdown body, 300-420 words, using the four H2 sections above",
+  "excerpt": "string — punchy 1-line summary, under 150 chars",
   "tags": ["array", "of", "5", "lowercase", "tags"]
 }${repair}`;
 }

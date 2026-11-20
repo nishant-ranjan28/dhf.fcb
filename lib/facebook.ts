@@ -6,6 +6,8 @@ export interface FacebookResult {
   ok: boolean;
   /** Post id (`{page-id}_{post-id}`) on success — handy for verification. */
   id?: string;
+  /** Public permalink, used for the in-article social card. */
+  url?: string;
   error?: string;
 }
 
@@ -49,7 +51,12 @@ export async function postToFacebookPage(opts: {
     } catch {
       id = undefined;
     }
-    return { ok: true, ...(id ? { id } : {}) };
+    // Meta returns `{page-id}_{post-id}`; split it into a page permalink.
+    const parts = id?.match(/^(\d+)_(\d+)$/);
+    const url = parts
+      ? `https://www.facebook.com/permalink.php?story_fbid=${parts[2]}&id=${parts[1]}`
+      : undefined;
+    return { ok: true, ...(id ? { id } : {}), ...(url ? { url } : {}) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

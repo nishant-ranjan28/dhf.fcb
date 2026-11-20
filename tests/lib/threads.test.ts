@@ -25,7 +25,13 @@ function fetchMock() {
     if (u.endsWith("/threads")) {
       return new Response(JSON.stringify({ id: "creation-1" }), { status: 200 });
     }
-    return new Response(JSON.stringify({ id: "post-1" }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        id: "post-1",
+        permalink: "https://www.threads.net/@imnishu/post/post-1",
+      }),
+      { status: 200 },
+    );
   });
 }
 
@@ -49,10 +55,15 @@ describe("postToThreads", () => {
     const mock = fetchMock();
     vi.stubGlobal("fetch", mock);
     const r = await postToThreads({ title: "Yamal signs", url: "https://s.com/blog/yamal" });
-    expect(r).toEqual({ ok: true, id: "post-1" });
+    expect(r).toEqual({
+      ok: true,
+      id: "post-1",
+      url: "https://www.threads.net/@imnishu/post/post-1",
+    });
 
     const calls = mock.mock.calls as unknown as [string, RequestInit][];
-    expect(calls).toHaveLength(3);
+    // refresh token → create container → publish → resolve permalink
+    expect(calls).toHaveLength(4);
     expect(String(calls[0][0])).toContain("refresh_access_token");
 
     const [createUrl, createInit] = calls[1];
@@ -66,6 +77,7 @@ describe("postToThreads", () => {
     expect(String(publishUrl)).toBe("https://graph.threads.net/v1.0/user-1/threads_publish");
     const publishBody = new URLSearchParams(String(publishInit.body));
     expect(publishBody.get("creation_id")).toBe("creation-1");
+    expect(String(calls[3][0])).toContain("fields=permalink");
   });
 
   it("uses a refreshed token when Meta returns one", async () => {

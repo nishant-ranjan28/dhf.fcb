@@ -9,6 +9,8 @@ const POST_LIMIT = 300;
 
 export interface BlueskyResult {
   ok: boolean;
+  /** Public bsky.app permalink, used for the in-article social card. */
+  url?: string;
   error?: string;
 }
 
@@ -127,7 +129,12 @@ export async function postToBluesky(opts: {
       sess.accessJwt,
     );
     if (!recRes.ok) return { ok: false, error: await httpError(recRes) };
-    return { ok: true };
+    const created = (await recRes.json().catch(() => ({}))) as { uri?: string };
+    // AT-URI → public web permalink:
+    // at://did:plc:abc/app.bsky.feed.post/3kxyz → bsky.app/profile/did:plc:abc/post/3kxyz
+    const m = /^at:\/\/(did:[^/]+)\/app\.bsky\.feed\.post\/([^/]+)$/.exec(created.uri ?? "");
+    const url = m ? `https://bsky.app/profile/${m[1]}/post/${m[2]}` : undefined;
+    return { ok: true, ...(url ? { url } : {}) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

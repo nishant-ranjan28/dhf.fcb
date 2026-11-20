@@ -9,20 +9,20 @@ import {
 } from "@/lib/autopost/gates";
 
 describe("wordCountGate", () => {
-  it("passes when body has at least 500 words (default floor)", () => {
-    const body = "word ".repeat(500).trim();
+  it("passes when body has at least 260 words (short-post floor)", () => {
+    const body = "word ".repeat(260).trim();
     expect(wordCountGate(body)).toBe(true);
   });
-  it("fails under 500 words", () => {
-    expect(wordCountGate("word ".repeat(499).trim())).toBe(false);
+  it("fails under 260 words", () => {
+    expect(wordCountGate("word ".repeat(259).trim())).toBe(false);
   });
   it("ignores markdown when counting", () => {
-    // 500 'word' tokens wrapped in markdown noise should still pass.
-    const body = "# Title\n\n" + "**word** ".repeat(500);
+    // 260 'word' tokens wrapped in markdown noise should still pass.
+    const body = "# Title\n\n" + "**word** ".repeat(260);
     expect(wordCountGate(body)).toBe(true);
   });
   it("respects an explicit higher min", () => {
-    const body = "word ".repeat(500).trim();
+    const body = "word ".repeat(260).trim();
     expect(wordCountGate(body, 600)).toBe(false);
   });
 });

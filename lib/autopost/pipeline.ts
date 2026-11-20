@@ -31,7 +31,7 @@ type GateResult =
   | { ok: true; missingEntities?: string[] }
   | { ok: false; reason: GateSkipReason; diag: GateDiagnostics };
 import type { GenerateResult } from "./generate";
-import type { BlogPost } from "@/lib/blog/types";
+import type { BlogPost, SocialPostLink } from "@/lib/blog/types";
 
 const DAY_CAP = 24;
 const MANUAL_COOLDOWN_MS = 55 * 60 * 1000;
@@ -182,7 +182,43 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   // 5. Announce (best-effort)
   const announces = await deps.announceFn(post, deps.siteUrl);
 
+  // Store the successful announcement permalinks so the article can show
+  // real, story-specific social cards. This is cosmetic: a store failure must
+  // never turn an already-published post into a failed run.
+  const socialPosts = socialPostsFromAnnounces(announces.postUrls);
+  if (socialPosts.length > 0) {
+    try {
+      await blogStore().updateSocialPosts(post.slug, socialPosts);
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          kind: "autopost",
+          socialPostsSaveFailed: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  }
+
   return { status: "published", slug: post.slug, provider: draft.provider, announces };
+}
+
+/** Platform permalinks we can render as a social card on the article page. */
+function socialPostsFromAnnounces(
+  urls: AnnounceResults["postUrls"],
+): SocialPostLink[] {
+  if (!urls) return [];
+  const platforms = {
+    facebook: "facebook",
+    bluesky: "bluesky",
+    mastodon: "mastodon",
+    threads: "threads",
+  } as const;
+  const posts: SocialPostLink[] = [];
+  for (const [channel, platform] of Object.entries(platforms)) {
+    const url = urls[channel as keyof typeof platforms];
+    if (url) posts.push({ platform, url });
+  }
+  return posts;
 }
 
 function runGates(args: {

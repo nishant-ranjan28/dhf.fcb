@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { toSlug } from "@/lib/slug";
-import type { BlogPost, BlogPostInput } from "./types";
+import type { BlogPost, BlogPostInput, SocialPostLink } from "./types";
 
 // Upstash Redis is enabled when both env vars are present.
 //
@@ -26,6 +26,8 @@ interface BlogStore {
   list(opts?: { limit?: number; offset?: number }): Promise<BlogPost[]>;
   get(slug: string): Promise<BlogPost | null>;
   create(input: BlogPostInput): Promise<BlogPost>;
+  /** Attach social announcement permalinks after the post has been announced. */
+  updateSocialPosts(slug: string, socialPosts: SocialPostLink[]): Promise<BlogPost | null>;
   delete(slug: string): Promise<boolean>;
   /** Test-only: wipe everything. */
   _reset?(): Promise<void>;
@@ -59,6 +61,18 @@ function makeRedisStore(client: Redis): BlogStore {
       ]);
       return post;
     },
+    async updateSocialPosts(slug, socialPosts) {
+      const key = POST_KEY_PREFIX + slug;
+      const current = await client.get<BlogPost>(key);
+      if (!current) return null;
+      const updated = {
+        ...current,
+        socialPosts,
+        updatedAt: new Date().toISOString(),
+      };
+      await client.set(key, updated);
+      return updated;
+    },
     async delete(slug) {
       const removed = (await client.del(POST_KEY_PREFIX + slug)) > 0;
       await client.zrem(POSTS_INDEX_KEY, slug);
@@ -85,6 +99,17 @@ function makeMemoryStore(): BlogStore {
       posts.set(post.slug, post);
       return post;
     },
+    async updateSocialPosts(slug, socialPosts) {
+      const current = posts.get(slug);
+      if (!current) return null;
+      const updated = {
+        ...current,
+        socialPosts,
+        updatedAt: new Date().toISOString(),
+      };
+      posts.set(slug, updated);
+      return updated;
+    },
     async delete(slug) {
       return posts.delete(slug);
     },
@@ -106,6 +131,9 @@ function buildPost(input: BlogPostInput): BlogPost {
     excerpt: (input.excerpt ?? deriveExcerpt(input.body)).trim(),
     body: input.body,
     coverImage: input.coverImage?.trim() || undefined,
+    socialPosts: input.socialPosts?.filter((p) => p.url.trim()).length
+      ? input.socialPosts.filter((p) => p.url.trim())
+      : undefined,
     tags: (input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
     createdAt: now,
     updatedAt: now,

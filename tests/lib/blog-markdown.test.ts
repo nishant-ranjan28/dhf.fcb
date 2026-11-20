@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoEmbedYouTube, renderMarkdown } from "@/lib/blog/markdown";
+import { autoEmbedSocial, autoEmbedYouTube, renderMarkdown } from "@/lib/blog/markdown";
 
 describe("autoEmbedYouTube", () => {
   it("converts a bare youtu.be URL on its own line into an iframe", () => {
@@ -26,6 +26,28 @@ describe("autoEmbedYouTube", () => {
   it("leaves non-YouTube content alone", () => {
     const md = "Plain **markdown** text\n[link](https://example.com)";
     expect(autoEmbedYouTube(md)).toBe(md);
+  });
+});
+
+describe("autoEmbedSocial", () => {
+  it("embeds a bare Mastodon status URL", () => {
+    const out = autoEmbedSocial("https://mastodon.social/@BarcaPulse/123456789");
+    expect(out).toContain("mastodon.social/@BarcaPulse/123456789/embed");
+    expect(out).toContain("<iframe");
+  });
+
+  it("renders Bluesky and Threads URLs as link cards", () => {
+    const out = autoEmbedSocial(
+      "https://bsky.app/profile/barcapulse.bsky.social/post/abc123\nhttps://www.threads.net/@imnishu/post/xyz789",
+    );
+    expect(out).toContain('class="social-card"');
+    expect(out).toContain("bsky.app/profile/barcapulse.bsky.social/post/abc123");
+    expect(out).toContain("threads.net/@imnishu/post/xyz789");
+  });
+
+  it("leaves URLs inside sentences alone", () => {
+    const line = "See https://bsky.app/profile/barcapulse.bsky.social/post/abc123 for details";
+    expect(autoEmbedSocial(line)).toBe(line);
   });
 });
 

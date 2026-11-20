@@ -14,6 +14,20 @@ disabled because its API now requires paid credits.
 > ~3 scheduled runs/day even on an every-2-hours cron, so the external trigger
 > is the primary one.
 
+## Post shape and article presentation
+
+Generated posts are intentionally short: 300-420 words in four H2 sections
+(`Quick take`, `What happened`, `Why it matters`, `What's next`). The word-count
+gate floor is 260, leaving room for tight drafts without turning the blog back
+into long-form essays. The article page splits the rendered body at those H2s
+and places ads/social cards only at section boundaries, so copy is never cut in
+half.
+
+When Facebook, Bluesky, Mastodon, or Threads returns a public permalink, the
+pipeline stores it on the post as `socialPosts`. The article then shows those
+as compact "From our feed" cards between sections. Older posts without stored
+URLs simply omit the cards.
+
 ## Required env vars (Vercel)
 
 | Var | Source | Notes |
@@ -216,12 +230,12 @@ self-promotion rules first — repeated posting can get an account banned.
 | All runs return `all_providers_failed` with `groq http 400 ... json_validate_failed` | gpt-oss reasoning used up the output budget before emitting JSON | Already fixed in `lib/autopost/generate.ts`: 4096 tokens and no strict `response_format`; check Vercel logs for the provider error body |
 | All runs return `quota` | Groq free tier exhausted (30 RPM / 1K req/day) | Wait for daily reset, or upgrade the Groq plan |
 | All runs return `no_eligible_news` | Recent-topics set too aggressive | Wait — topics expire after 7 days |
-| All runs return `gate_word_count` | Model producing short outputs | Bump prompt's word-count instruction; check `GROQ_MODEL` is still a served ID |
+| All runs return `gate_word_count` | Model producing very short or unstructured output | Prompt targets 300-420 words in four H2 sections; floor is 260 words. Check `GROQ_MODEL` is still a served ID |
 | All runs return `gate_entity_coverage` | LLM omitted a headline name (often an accented spelling like `Araújo` vs `araujo`) | Already fixed: one automatic regeneration with the missing names called out, plus accent-insensitive matching. If it persists, check `lastRun.diagnostics.missingEntities` |
 | Facebook push always `err` | Token expired | Renew per "Facebook token renewal" above |
 | Telegram push always `err` | Bot was kicked from channel / token rotated | Re-invite bot; rotate `TELEGRAM_BOT_TOKEN` |
 | GH Actions runs not firing | GitHub drops/delays scheduled runs on idle repos | Rely on the external cron; trigger via `workflow_dispatch` for a one-off |
-| Last run always `min_interval` | Two triggers are firing within 50 min | Expected when both crons fire; disable the GH `schedule` block to stop it |
+| Last run always `min_interval` | Two triggers are firing within 10 min | Expected when both crons fire; disable the GH `schedule` block to stop it |
 | Cron history shows `Failed (timeout)` | Route is not reaching its immediate ack (bad deploy, or auth failing before `after()`) | Redeploy; check `/admin/autopost` → Last cron run and the `kind:"autopost"` logs |
 | No **Last cron run** update after an ack | The background task was killed before finishing (Vercel duration clamp) | Check Vercel logs; lower provider timeouts or upgrade the plan |
 

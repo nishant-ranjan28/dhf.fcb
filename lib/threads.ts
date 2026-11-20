@@ -15,6 +15,8 @@ const PUBLISH_RETRIES = 3;
 export interface ThreadsResult {
   ok: boolean;
   id?: string;
+  /** Public threads permalink, used for the in-article social card. */
+  url?: string;
   error?: string;
 }
 
@@ -100,7 +102,28 @@ export async function postToThreads(opts: {
       });
       if (publishRes.ok) {
         const published = (await publishRes.json()) as { id?: string };
-        return { ok: true, ...(published.id ? { id: published.id } : {}) };
+        let url: string | undefined;
+        if (published.id) {
+          // The publish response only carries an id. Ask for the permalink
+          // separately; a failure here just means no social card, not a failed
+          // announcement.
+          try {
+            const detailRes = await fetch(
+              `${GRAPH}/${published.id}?fields=permalink&access_token=${encodeURIComponent(token)}`,
+              { signal: AbortSignal.timeout(5000) },
+            );
+            if (detailRes.ok) {
+              url = ((await detailRes.json()) as { permalink?: string }).permalink;
+            }
+          } catch {
+            url = undefined;
+          }
+        }
+        return {
+          ok: true,
+          ...(published.id ? { id: published.id } : {}),
+          ...(url ? { url } : {}),
+        };
       }
       lastError = await httpError(publishRes);
       // Only the transient "Media Not Found" race is worth retrying; other

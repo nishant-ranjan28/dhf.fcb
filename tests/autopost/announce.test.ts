@@ -109,6 +109,26 @@ describe("announce", () => {
     expect(r.errors).toBeUndefined();
   });
 
+  it("returns public permalinks so the article can show social cards", async () => {
+    process.env.MASTODON_INSTANCE = "mastodon.social";
+    process.env.MASTODON_ACCESS_TOKEN = "mt";
+    const permalink = "https://mastodon.social/@BarcaPulse/123456789";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request) => {
+        if (String(url).includes("/api/v1/statuses")) {
+          return new Response(JSON.stringify({ id: "123456789", url: permalink }), {
+            status: 200,
+          });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }),
+    );
+    const r = await announce(POST, "https://site.com");
+    expect(r.mastodon).toBe("ok");
+    expect(r.postUrls).toEqual({ mastodon: permalink });
+  });
+
   it("pings IndexNow with the post URL when configured", async () => {
     process.env.INDEXNOW_KEY = "abc123";
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));

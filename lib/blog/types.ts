@@ -7,6 +7,8 @@ export interface BlogPost {
   body: string;
   /** Optional URL to a hero image rendered above the post. */
   coverImage?: string;
+  /** Official social posts announcing this story, captured after publish. */
+  socialPosts?: SocialPostLink[];
   /** Lower-case, slug-friendly tags. */
   tags: string[];
   /** ISO timestamp; written once on create. */
@@ -16,11 +18,20 @@ export interface BlogPost {
   author: string;
 }
 
+export type SocialPlatform = "facebook" | "bluesky" | "mastodon" | "threads";
+
+export interface SocialPostLink {
+  platform: SocialPlatform;
+  /** Public permalink returned by the platform after autopost announces. */
+  url: string;
+}
+
 export interface BlogPostInput {
   title: string;
   excerpt?: string;
   body: string;
   coverImage?: string;
+  socialPosts?: SocialPostLink[];
   tags?: string[];
   author?: string;
 }

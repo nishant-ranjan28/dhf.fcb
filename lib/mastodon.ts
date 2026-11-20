@@ -6,6 +6,8 @@ const DEFAULT_LIMIT = 500;
 export interface MastodonResult {
   ok: boolean;
   id?: string;
+  /** Public status permalink, used for the in-article social card. */
+  url?: string;
   error?: string;
 }
 
@@ -58,12 +60,15 @@ export async function postToMastodon(opts: {
       return { ok: false, error: `HTTP ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 300)}` };
     }
     let id: string | undefined;
+    let url: string | undefined;
     try {
-      id = ((await res.json()) as { id?: string }).id;
+      const data = (await res.json()) as { id?: string; url?: string };
+      id = data.id;
+      url = data.url;
     } catch {
       id = undefined;
     }
-    return { ok: true, ...(id ? { id } : {}) };
+    return { ok: true, ...(id ? { id } : {}), ...(url ? { url } : {}) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

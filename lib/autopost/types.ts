@@ -64,4 +64,7 @@ export interface AnnounceResults {
    *  the cron ack / lastRun shows *why* a platform failed (e.g. an expired
    *  Facebook token) without digging through Vercel logs. */
   errors?: Partial<Record<AnnounceChannel, string>>;
+  /** Public permalinks from successful announcements. The pipeline stores
+   *  these on the post so the article can show related social cards. */
+  postUrls?: Partial<Record<AnnounceChannel, string>>;
 }
