@@ -59,7 +59,14 @@ describe("announce", () => {
       }),
     );
     const r = await announce(POST, "https://site.com");
-    expect(r).toEqual({ telegram: "ok", facebook: "err", indexnow: "skipped", x: "skipped", bluesky: "skipped" });
+    expect(r).toEqual({
+      telegram: "ok",
+      facebook: "err",
+      indexnow: "skipped",
+      x: "skipped",
+      bluesky: "skipped",
+      errors: { facebook: expect.stringContaining("HTTP 500") },
+    });
   });
 
   it("pings IndexNow with the post URL when configured", async () => {

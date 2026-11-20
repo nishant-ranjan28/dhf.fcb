@@ -1,7 +1,11 @@
-const GRAPH = "https://graph.facebook.com/v21.0";
+// v21.0 expires 21 Jan 2027. v27.0 is the current version (released Nov 2026);
+// bump again whenever Meta retires it. The /feed call itself is unchanged.
+const GRAPH = "https://graph.facebook.com/v27.0";
 
 export interface FacebookResult {
   ok: boolean;
+  /** Post id (`{page-id}_{post-id}`) on success — handy for verification. */
+  id?: string;
   error?: string;
 }
 
@@ -30,14 +34,22 @@ export async function postToFacebookPage(opts: {
       body,
       signal: AbortSignal.timeout(8000),
     });
+    const text = await res.text().catch(() => "");
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
       return {
         ok: false,
-        error: `HTTP ${res.status}: ${body.replace(/\s+/g, " ").slice(0, 200)}`,
+        error: `HTTP ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 300)}`,
       };
     }
-    return { ok: true };
+    // Meta returns `{"id":"<page>_<post>"}`. Surface it so the cron ack shows a
+    // post id we can look up, not just "ok".
+    let id: string | undefined;
+    try {
+      id = (JSON.parse(text) as { id?: string }).id;
+    } catch {
+      id = undefined;
+    }
+    return { ok: true, ...(id ? { id } : {}) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

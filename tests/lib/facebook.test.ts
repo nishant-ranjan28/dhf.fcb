@@ -37,8 +37,9 @@ describe("postToFacebookPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const r = await postToFacebookPage({ message: "Hello", link: "https://barcapulse.com/blog/x" });
     expect(r.ok).toBe(true);
+    expect(r.id).toBe("555_999");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toContain("/555/feed");
+    expect(String(url)).toContain("/v27.0/555/feed");
     const params = new URLSearchParams(String(init?.body));
     expect(params.get("message")).toBe("Hello");
     expect(params.get("link")).toBe("https://barcapulse.com/blog/x");
@@ -56,6 +57,7 @@ describe("postToFacebookPage", () => {
     );
     const r = await postToFacebookPage({ message: "Hi", link: "https://x.com" });
     expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/HTTP 400/);
     expect(r.error).toMatch(/Invalid OAuth/);
   });
 });

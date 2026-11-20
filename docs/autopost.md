@@ -18,7 +18,7 @@ Telegram and the Facebook Page.
 | `GROQ_API_KEY` | https://console.groq.com/ → API keys | Required. Free tier: 30 RPM / 1K req/day on `openai/gpt-oss-20b` |
 | `OPENROUTER_API_KEY` | https://openrouter.ai/ → API keys | Fallback when Groq fails. Model via `OPENROUTER_MODEL` (default `openai/gpt-oss-20b`) |
 | `FACEBOOK_PAGE_ID` | FB Page → About → Page ID | Numeric |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | Meta dev portal, long-lived | ~60 day lifetime — see Renewal below |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | `GET /me/accounts` with a Meta app token | Page token — see Facebook setup below |
 | `CRON_TOKEN` | `openssl rand -hex 32` | Random secret; also set as GH repo secret |
 | `AUTOPOST_ENABLED` | `"true"` to start, anything else to pause | Kill switch. Default if unset is OFF — you must explicitly set `AUTOPOST_ENABLED=true` to enable the feature. |
 | `SITE_URL` | `https://dhf-fcb.iamnishant.in` | Already set; used for post links |
@@ -74,15 +74,31 @@ the feature paused.
 
 To resume: set `AUTOPOST_ENABLED=true` and redeploy.
 
-## Facebook token renewal
+## Facebook setup (Page token)
 
-Meta's long-lived Page Access Tokens last ~60 days. To renew:
+Posting uses the **Page** endpoint `POST /{page-id}/feed`, so a personal
+facebook.com login is not enough — the code needs a Page access token minted by
+a Meta app.
 
-1. Generate a new long-lived User token via Graph Explorer
-2. Exchange for a long-lived Page token: `GET /me/accounts`
-3. Replace `FACEBOOK_PAGE_ACCESS_TOKEN` in Vercel and redeploy
+1. https://developers.facebook.com/apps → **Create app** → type **Business**.
+   (Consumer apps cannot request Pages permissions.) Add **Facebook Login for
+   Business**.
+2. Request `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, and
+   make sure your user has the `CREATE_CONTENT` task on the Page.
+3. In Graph API Explorer, with that app selected and those scopes granted:
+   `GET /me/accounts?fields=id,name,tasks,access_token` → copy the Page `id` and
+   its `access_token`.
+4. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` in Vercel, then
+   redeploy.
 
-Calendar a reminder for ~50 days after each rotation.
+Because the blog posts only to a Page you own and you are an admin of the app,
+**Standard Access is enough — no App Review or business verification**. A Page
+token minted from a long-lived User token does not expire on its own; if posting
+starts failing, check `announces.errors.facebook` in the cron ack first.
+
+Graph API version is pinned in `lib/facebook.ts`. `v21.0` is retired
+**21 Jan 2027**, so the code uses `v27.0` (current as of Nov 2026). Bump it when
+Meta retires that version.
 
 ## Monitoring
 
@@ -97,6 +113,9 @@ Calendar a reminder for ~50 days after each rotation.
   A `Failed (timeout)` here means the route itself stopped acking (e.g. a bad
   deploy), not that generation was slow. A successful ack with no new post
   means the pipeline skipped — check `lastRun.reason`, not the HTTP status.
+  On a publish, `lastRun.announces` shows each platform and
+  `lastRun.announces.errors.<platform>` carries the provider's error text, so
+  "published but no Facebook post" is diagnosable from the ack alone.
 - **GitHub Actions (fallback):** Actions tab → "Auto-post (throttled)" — only a
   few scheduled runs/day are expected; use `workflow_dispatch` for a one-off.
 

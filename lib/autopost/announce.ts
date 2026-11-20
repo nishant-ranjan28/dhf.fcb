@@ -4,13 +4,16 @@ import { isIndexNowConfigured, submitToIndexNow } from "@/lib/indexnow";
 import { isXConfigured, postToX, formatTweet } from "@/lib/x";
 import { isBlueskyConfigured, postToBluesky } from "@/lib/bluesky";
 import type { BlogPost } from "@/lib/blog/types";
-import type { AnnounceResults } from "./types";
+import type { AnnounceChannel, AnnounceResults } from "./types";
 
 type Status = "ok" | "err" | "skipped";
 
-function report(channel: string) {
+function report(channel: AnnounceChannel, errors: Partial<Record<AnnounceChannel, string>>) {
   return (r: { ok: boolean; error?: string }): Status => {
-    if (!r.ok) console.warn(`[autopost] ${channel} error:`, r.error);
+    if (!r.ok) {
+      errors[channel] = r.error ?? "unknown error";
+      console.warn(`[autopost] ${channel} error:`, r.error);
+    }
     return r.ok ? "ok" : "err";
   };
 }
@@ -18,27 +21,37 @@ function report(channel: string) {
 export async function announce(post: BlogPost, siteUrl: string): Promise<AnnounceResults> {
   const url = `${siteUrl}/blog/${post.slug}`;
   const skipped = Promise.resolve("skipped" as const);
+  const errors: Partial<Record<AnnounceChannel, string>> = {};
   const [tg, fb, inow, x, bsky] = await Promise.all([
     isTelegramConfigured()
-      ? sendTelegramMessage({ text: formatBlogPost(post, siteUrl) }).then(report("telegram"))
+      ? sendTelegramMessage({ text: formatBlogPost(post, siteUrl) }).then(report("telegram", errors))
       : skipped,
     isFacebookConfigured()
       ? postToFacebookPage({ message: `${post.title}\n\n${post.excerpt}`, link: url }).then(
-          report("facebook"),
+          report("facebook", errors),
         )
       : skipped,
     isIndexNowConfigured()
-      ? submitToIndexNow([url], siteUrl).then(report("indexnow"))
+      ? submitToIndexNow([url], siteUrl).then(report("indexnow", errors))
       : skipped,
-    isXConfigured() ? postToX({ text: formatTweet(post.title, url) }).then(report("x")) : skipped,
+    isXConfigured()
+      ? postToX({ text: formatTweet(post.title, url) }).then(report("x", errors))
+      : skipped,
     isBlueskyConfigured()
       ? postToBluesky({
           title: post.title,
           url,
           description: post.excerpt,
           imageUrl: post.coverImage,
-        }).then(report("bluesky"))
+        }).then(report("bluesky", errors))
       : skipped,
   ]);
-  return { telegram: tg, facebook: fb, indexnow: inow, x, bluesky: bsky };
+  return {
+    telegram: tg,
+    facebook: fb,
+    indexnow: inow,
+    x,
+    bluesky: bsky,
+    ...(Object.keys(errors).length > 0 ? { errors } : {}),
+  };
 }
