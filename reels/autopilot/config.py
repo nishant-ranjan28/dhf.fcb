@@ -33,6 +33,13 @@ LANGUAGE = env("LANGUAGE", "English")
 CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5")
 NEWS_QUERIES = [q.strip() for q in env(
     "NEWS_QUERIES", '"FC Barcelona"|Barca Flick|Barcelona La Liga').split("|") if q.strip()]
+# Feeds with real article summaries. Scripts are only written from these, never from bare headlines.
+RICH_FEEDS = [tuple(x.strip() for x in f.split("=", 1)) for f in env(
+    "RICH_FEEDS",
+    "The Guardian=https://www.theguardian.com/football/barcelona/rss|"
+    "BBC Sport=https://feeds.bbci.co.uk/sport/football/teams/barcelona/rss.xml|"
+    "Marca=https://e00-marca.uecdn.es/rss/futbol/barcelona.xml|"
+    "Mundo Deportivo=https://www.mundodeportivo.com/feed/rss/fc-barcelona").split("|") if "=" in f]
 # Wikipedia articles that fact / stats videos are drawn from (one random passage each per video).
 FACT_PAGES = [p.strip() for p in env(
     "FACT_PAGES", "FC Barcelona|History of FC Barcelona|List of FC Barcelona records and statistics|Camp Nou|"

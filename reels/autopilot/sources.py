@@ -1,4 +1,5 @@
 """Collect raw material: recent Barça news (RSS) and fixtures/results/table (football-data.org)."""
+import calendar
 import random
 import re
 import time
@@ -28,30 +29,51 @@ def _norm(title):
     return re.sub(r"[^a-z0-9 ]", "", title.lower())[:80]
 
 
-def _site_news(max_age_hours):
-    """Barça stories from the site's own feed (BBC, ESPN, Marca, Mundo Deportivo), with real summaries."""
-    r = requests.get(f"{config.SITE_URL.rstrip('/')}/api/news", headers=UA, timeout=30,
-                     params={"category": "barca", "limit": 40})
-    r.raise_for_status()
+def fetch_rich_news(max_items=12, max_age_hours=48, min_chars=70):
+    """Stories with a real summary from the club feeds of established outlets."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-    outlets = {"bbc": "BBC Sport", "espn": "ESPN", "marca": "Marca", "md": "Mundo Deportivo",
-               "mundodeportivo": "Mundo Deportivo"}
-    items = []
-    for p in r.json().get("posts", []):
-        summary = _clean(p.get("content"))
+    seen, items = set(), []
+    for outlet, url in config.RICH_FEEDS:
+        kept = 0
         try:
-            when = datetime.fromisoformat(str(p.get("createdAt", "")).replace("Z", "+00:00"))
-        except ValueError:
+            feed = feedparser.parse(url, agent=UA["User-Agent"])
+        except Exception as e:  # noqa: BLE001
+            print(f"[news] {outlet} failed: {e}")
             continue
-        if when < cutoff or len(summary) < 80 or not p.get("link"):
-            continue  # too old, too thin to write from, or not a sourced article
-        host = urllib.parse.urlparse(p["link"]).netloc.lower().removeprefix("www.")
-        source = outlets.get(str(p.get("slug", "")).split("-")[0]) or \
-            next((v for k, v in outlets.items() if k in host), host)
-        items.append({"title": _clean(p.get("title")), "summary": summary[:600], "source": source,
-                      "link": p["link"], "published": when.isoformat()})
+        for e in feed.entries:
+            when = getattr(e, "published_parsed", None) or getattr(e, "updated_parsed", None)
+            if not when:
+                continue
+            published = datetime.fromtimestamp(calendar.timegm(when), timezone.utc)
+            title, summary = _clean(e.get("title")), _clean(e.get("summary"))
+            key = _norm(title)
+            if published < cutoff or len(summary) < min_chars or not title or key in seen:
+                continue
+            seen.add(key)
+            kept += 1
+            items.append({"title": title, "summary": summary[:900], "source": outlet,
+                          "link": e.get("link", ""), "published": published.isoformat()})
+        print(f"[news] {outlet}: {kept} usable of {len(feed.entries)}")
     items.sort(key=lambda x: x["published"], reverse=True)
-    return items
+    # spread across outlets so one busy feed does not crowd out the rest
+    out, per = [], {}
+    for it in items:
+        if per.get(it["source"], 0) < max(3, max_items // 3):
+            out.append(it)
+            per[it["source"]] = per.get(it["source"], 0) + 1
+    return out[:max_items]
+
+
+def fetch_squad():
+    """Current coach and squad via the site (football-data.org). Empty dict if unavailable."""
+    if not site.enabled():
+        return {}
+    try:
+        data = site.call("squad", timeout=40)
+        return {"coach": data.get("coach", ""), "players": data.get("players", [])}
+    except Exception as e:  # noqa: BLE001
+        print(f"[squad] unavailable: {e}")
+        return {}
 
 
 def fetch_fact_passages(count, used_titles=()):
@@ -91,14 +113,7 @@ def fetch_fact_passages(count, used_titles=()):
 
 
 def fetch_news(max_items=30, max_age_hours=36):
-    if config.SITE_URL:
-        try:
-            items = _site_news(max_age_hours)
-            print(f"[news] {len(items)} fresh items from the site feed")
-            if len(items) >= 3:
-                return items[:max_items]
-        except Exception as e:  # noqa: BLE001
-            print(f"[news] site feed failed: {e}")
+    """Headline-only Google News items. Too thin to write scripts from; kept for reference."""
     feeds = [_google_news_url(q) for q in config.NEWS_QUERIES] + config.EXTRA_FEEDS
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     seen, items = set(), []

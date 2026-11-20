@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
-import { generateReelScripts, publishReel, reelMatches } from "@/lib/reels";
+import { generateReelScripts, publishReel, reelMatches, reelSquad } from "@/lib/reels";
 
 // Called by the Reels workflows in .github/workflows/reels-*.yml with the same
 // CRON_TOKEN the auto-post trigger uses. See reels/README.md.
@@ -38,6 +38,10 @@ export async function POST(req: Request) {
         const error = err instanceof Error ? err.message : String(err);
         return NextResponse.json({ ok: false, error }, { status: 502 });
       }
+    }
+    case "squad": {
+      const r = await reelSquad();
+      return NextResponse.json(r, { status: r.ok ? 200 : 502 });
     }
     case "publish": {
       if (!str("videoUrl") || !str("description")) {

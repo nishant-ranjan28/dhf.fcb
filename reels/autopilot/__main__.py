@@ -34,12 +34,14 @@ def _render_item(item, audio_src=None):
 def cmd_generate(args):
     state = store.load()
     store.prune(state)
-    news = sources.fetch_news()
+    news = sources.fetch_rich_news()
     matches = sources.fetch_matches()
+    squad = sources.fetch_squad()
+    print(f"[generate] material: {len(news)} stories with summaries, squad of {len(squad.get('players', []))}")
     recent = state.get("history_titles", []) + [i["script"]["title"] for i in state["items"]]
     count = args.count or config.DAILY_VIDEOS
-    passages = sources.fetch_fact_passages(count // 2)
-    scripts = writer.write_scripts(news, matches, passages, count, recent)
+    passages = sources.fetch_fact_passages(max(2, count - min((count + 1) // 2, len(news))))
+    scripts = writer.write_scripts(news, matches, passages, count, recent, squad)
     print(f"[generate] {len(scripts)} of {count} scripts passed the fact check")
     tg, gi = telegram.enabled(), ghissue.enabled()
     review = tg or gi
