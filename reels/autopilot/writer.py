@@ -63,6 +63,8 @@ ACCURACY RULES. These matter more than anything else:
   football is unreliable: do not add any name, number, date, score, position, role, transfer fee,
   record or event that is not written in the material. If the material is thin, write a shorter
   video (4 lines is fine) rather than padding it with things you believe to be true.
+- Do not describe who a person is (coach, striker, defender, captain, youngster, veteran) unless the
+  material says so. A shared first name proves nothing: never assume two people are the same.
 - Never write a direct quote. Do not use quotation marks at all. Report what was said in your own
   words only if the material itself reports it.
 - Rumours must be framed as rumours ("reports in Spain claim..."), naming the outlet.
@@ -83,6 +85,8 @@ STYLE:
 CHECK_SYSTEM = """You are a strict fact-checker for football video scripts. You get MATERIAL and a
 numbered SCRIPT. For every script line, decide whether each factual claim in it (names, numbers,
 dates, scores, positions, roles, records, events, quotes) is directly supported by the MATERIAL.
+Describing a person counts as a claim: calling someone the coach, a forward, a defender, the
+captain, a legend, a new signing and so on must be supported by the MATERIAL too.
 Ignore opinions, questions to the audience, greetings and calls to follow or comment.
 Use only the MATERIAL, never your own knowledge.
 Reply with ONE JSON object and nothing else:
@@ -148,6 +152,11 @@ def _material_text(kind, material):
                  for i, n in enumerate(material["news"], 1)]
         if material.get("matches"):
             parts.append("MATCH DATA: " + json.dumps(material["matches"], ensure_ascii=False))
+        squad = material.get("squad") or {}
+        if squad.get("players"):
+            parts.append("CURRENT SQUAD (football-data.org). Head coach: " + (squad.get("coach") or "unknown")
+                         + ". Players: " + ", ".join(f"{p['name']} ({p['position'] or 'n/a'})"
+                                                     for p in squad["players"]))
         return "\n\n".join(parts)
     return "\n\n".join(f"[From the Wikipedia article '{p['title']}']\n{p['text']}" for p in material["passages"])
 
@@ -178,10 +187,14 @@ QUOTE_MARKS = ('"', "“", "”", "«", "»")
 
 
 def _verify(video, kind, material):
-    """True if an independent check finds every factual claim in the material. Fails closed."""
-    lines = [s["say"] + (f" [on-screen number: {s['stat_value']}]" if s.get("stat_value") else "")
-             for s in video["segments"]]
-    if any(q in line for line in lines for q in QUOTE_MARKS):
+    """Check every line against the material and cut the lines that fail.
+
+    Returns True if what is left is still a usable video. Fails closed: a broken check, a direct
+    quote, an unsupported headline or hook, or too few surviving lines all reject the draft.
+    """
+    segs = video["segments"]
+    lines = [s["say"] + (f" [on-screen number: {s['stat_value']}]" if s.get("stat_value") else "") for s in segs]
+    if any(q in text for text in lines + [video["title"]] for q in QUOTE_MARKS):
         print(f"[check] dropped '{video['title']}': contains a direct quote")
         return False
     script = f"0. (headline) {video['title']}\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(lines, 1))
@@ -190,21 +203,32 @@ def _verify(video, kind, material):
         bad = reply.get("unsupported")
         if not isinstance(bad, list):
             raise ValueError("no 'unsupported' list in reply")
+        flagged = set()
+        for b in bad:
+            n = b.get("line") if isinstance(b, dict) else None
+            if not isinstance(n, int) or not 0 <= n <= len(segs):
+                raise ValueError("flagged claim without a valid line number")
+            flagged.add(n)
     except Exception as e:  # noqa: BLE001
         print(f"[check] dropped '{video['title']}': check failed ({e})")
         return False
-    if bad:
-        claims = "; ".join(str(b.get("claim", b))[:80] if isinstance(b, dict) else str(b)[:80] for b in bad[:3])
+    if not flagged:
+        return True
+    claims = "; ".join(str(b.get("claim", ""))[:70] for b in bad[:3])
+    keep = [s for i, s in enumerate(segs, 1) if i not in flagged]
+    if 0 in flagged or 1 in flagged or len(keep) < 4:
         print(f"[check] dropped '{video['title']}': unsupported -> {claims}")
         return False
+    print(f"[check] '{video['title']}': cut {len(segs) - len(keep)} unsupported line(s) -> {claims}")
+    video["segments"] = keep
     return True
 
 
-def write_scripts(news, matches, passages, count, recent_titles=()):
+def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
     """Write and fact-check scripts. Returns fewer than `count` (or none) rather than unverified ones."""
-    n_news = (count + 1) // 2 if news else 0
+    n_news = min((count + 1) // 2, len(news))
     n_fact = count - n_news if passages else 0
-    plan = [("news", {"news": news[:10], "matches": matches}, n_news),
+    plan = [("news", {"news": news[:10], "matches": matches, "squad": squad or {}}, n_news),
             ("fact", {"passages": passages}, n_fact)]
     out, avoid = [], list(recent_titles)
     for kind, material, want in plan:

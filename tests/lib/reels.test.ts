@@ -79,6 +79,21 @@ describe("/api/cron/reels", () => {
     expect((await r.json()).ok).toBe(false);
   });
 
+  it("returns the coach and squad from football-data", async () => {
+    process.env.FOOTBALL_DATA_API_KEY = "fd-key";
+    resetEnvCache();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      res({ coach: { name: "Coach Name" }, squad: [{ name: "Player One", position: "Defence" }, { position: "Offence" }] }),
+    );
+    const r = await POST(req({ action: "squad" }));
+    expect(await r.json()).toEqual({
+      ok: true,
+      coach: "Coach Name",
+      players: [{ name: "Player One", position: "Defence" }],
+    });
+    expect(((fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>)["X-Auth-Token"]).toBe("fd-key");
+  });
+
   it("refuses to publish a video that is not a release asset of this repo", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const r = await POST(req({ action: "publish", videoUrl: "https://evil.example/a.mp4", description: "d" }));

@@ -114,6 +114,35 @@ export async function reelMatches(now = Date.now()): Promise<{ results: ReelMatc
   return { results, fixtures };
 }
 
+export interface ReelSquad {
+  coach: string;
+  players: { name: string; position: string }[];
+}
+
+/** Current coach and squad from football-data.org, so scripts and the fact
+ *  check know who plays where instead of guessing. */
+export async function reelSquad(): Promise<ReelsResult<ReelSquad>> {
+  const key = env.footballDataKey;
+  if (!key) return fail("FOOTBALL_DATA_API_KEY is not configured");
+  try {
+    const res = await fetch("https://api.football-data.org/v4/teams/81", {
+      headers: { "X-Auth-Token": key },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return fail(`football-data HTTP ${res.status}`);
+    const json = (await res.json()) as {
+      coach?: { name?: string };
+      squad?: { name?: string; position?: string }[];
+    };
+    const players = (json.squad ?? [])
+      .filter((p) => typeof p.name === "string" && p.name)
+      .map((p) => ({ name: p.name as string, position: p.position ?? "" }));
+    return { ok: true, coach: json.coach?.name ?? "", players };
+  } catch (err) {
+    return fail(message(err));
+  }
+}
+
 async function graph(path: string, body: Record<string, string>): Promise<Record<string, unknown>> {
   const res = await fetch(`${GRAPH}/${path}`, {
     method: "POST",
