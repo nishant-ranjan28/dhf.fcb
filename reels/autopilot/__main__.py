@@ -11,7 +11,7 @@ import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import config, facebook, media, render, sources, store, telegram, voice, writer
+from . import config, facebook, ghissue, media, render, site, sources, store, telegram, voice, writer
 
 PRIORITY = {"match": 0, "news": 1, "stats": 2, "fact": 3}
 
@@ -40,10 +40,11 @@ def cmd_generate(args):
     count = args.count or config.DAILY_VIDEOS
     scripts = writer.write_scripts(news, matches, count, recent)
     print(f"[generate] {len(scripts)} scripts")
-    tg = telegram.enabled()
-    if not tg and not config.AUTO_APPROVE:
-        print("[generate] WARNING: Telegram not configured, so drafts are auto-approved")
-    made = 0
+    tg, gi = telegram.enabled(), ghissue.enabled()
+    review = tg or gi
+    if not review and not config.AUTO_APPROVE:
+        print("[generate] WARNING: no Telegram bot or GitHub issue approval available, so drafts are auto-approved")
+    made, batch = 0, []
     for s in scripts:
         item = {"id": datetime.now().strftime("%m%d") + secrets.token_hex(2), "created": store.now().isoformat(),
                 "script": s, "status": "pending", "voice": "tts", "video": None, "tg_msg": None, "attempts": 0}
@@ -57,14 +58,23 @@ def cmd_generate(args):
                 store.put_video(mp4, mp4.name)
                 if tg:
                     item["tg_msg"] = telegram.send_draft(item, mp4)
-                if config.AUTO_APPROVE or not tg:
+                if config.AUTO_APPROVE or not review:
                     item["status"] = "approved"
+                elif gi:
+                    batch.append(item)
             state["items"].append(item)
             store.save(state)  # save after each so a later crash keeps earlier drafts
             made += 1
             print(f"[generate] {item['id']} {s['title']} -> {item['status']}")
         except Exception:  # noqa: BLE001
             traceback.print_exc()
+    if batch:
+        try:
+            number = ghissue.open_drafts(batch, datetime.now().strftime("%d %b %Y"))
+            print(f"[generate] drafts listed in issue #{number}")
+        except Exception:  # noqa: BLE001  (drafts stay pending and expire rather than post unreviewed)
+            traceback.print_exc()
+        store.save(state)
     telegram.notify(f"📥 {made} new draft(s) ready. Approve the ones you like; they post at the next slots.")
 
 
@@ -161,15 +171,25 @@ def _post_next(state):
     if s.get("credits"):
         desc += "\n📸 " + "; ".join(s["credits"])
     try:
-        path = store.get_video(it["video"], config.WORK / "post")
-        vid = facebook.publish_reel(path, desc)
+        link = f"More Barça news, fixtures and live scores 👉 {config.SITE_URL}" \
+            if config.COMMENT_LINK and config.SITE_URL else ""
+        if config.FB_PAGE_TOKEN and config.FB_PAGE_ID:
+            path = store.get_video(it["video"], config.WORK / "post")
+            vid = facebook.publish_reel(path, desc)
+            if link:
+                try:
+                    facebook.comment(vid, link)
+                except Exception as e:  # noqa: BLE001  (needs pages_manage_engagement; never block the post)
+                    print(f"[publish] link comment skipped: {e}")
+        elif site.enabled() and config.STORE == "github":
+            # the site downloads the release asset and uploads it with the Page token held in Vercel
+            vid = site.call("publish", videoUrl=ghissue.video_url(it["video"]), description=desc, comment=link)["id"]
+        else:
+            raise RuntimeError("No way to publish: set FB_PAGE_ID + FB_PAGE_TOKEN, or CRON_TOKEN")
         it.update(status="posted", posted_at=store.now().isoformat(), fb_video_id=vid)
-        if config.COMMENT_LINK and config.SITE_URL:
-            try:
-                facebook.comment(vid, f"More Barça news, fixtures and live scores 👉 {config.SITE_URL}")
-            except Exception as e:  # noqa: BLE001  (needs pages_manage_engagement; never block the post)
-                print(f"[publish] link comment skipped: {e}")
         telegram.notify(f"🚀 Posted: {s['title']}\n{facebook.reel_url(vid)}")
+        if it.get("issue"):
+            ghissue.comment(it["issue"], f"🚀 Posted draft {it.get('n')}: {facebook.reel_url(vid)}")
         print(f"[publish] posted {it['id']} -> {vid}")
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
@@ -177,15 +197,21 @@ def _post_next(state):
         if it["attempts"] >= 2:
             it["status"] = "failed"
         telegram.notify(f"⚠️ Posting failed ({it['attempts']}/2) for {s['title']}:\n{str(e)[:600]}")
+        if it.get("issue"):
+            ghissue.comment(it["issue"], f"⚠️ Posting draft {it.get('n')} failed ({it['attempts']}/2): `{str(e)[:300]}`")
 
 
 def cmd_publish(args):
     state = store.load()
     _process_updates(state)
+    if ghissue.enabled():
+        ghissue.process(state)
     store.save(state)
     _housekeeping(state)
     if not args.no_post:
         _post_next(state)
+    if ghissue.enabled():
+        ghissue.close_finished(state)
     store.prune(state)
     store.save(state)
 

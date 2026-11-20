@@ -68,6 +68,10 @@ GROQ_MODEL = env("GROQ_MODEL", "openai/gpt-oss-20b")
 FOOTBALL_DATA_TOKEN = env("FOOTBALL_DATA_TOKEN")
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID")
+# With CRON_TOKEN set and no key of its own, the pipeline asks the site (SITE_URL/api/cron/reels)
+# to write scripts, list matches and publish, using the keys that already live in Vercel.
+CRON_TOKEN = env("CRON_TOKEN")
+GITHUB_REPOSITORY = env("GH_REPO") or env("GITHUB_REPOSITORY")
 FB_PAGE_ID = env("FB_PAGE_ID")
 FB_PAGE_TOKEN = env("FB_PAGE_TOKEN")
 FB_GRAPH_VERSION = env("FB_GRAPH_VERSION", "v27.0")  # keep in step with lib/facebook.ts

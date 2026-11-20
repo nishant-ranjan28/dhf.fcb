@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import feedparser
 import requests
 
-from . import config
+from . import config, site
 
 UA = {"User-Agent": "Mozilla/5.0 (dhf-autopilot)"}
 
@@ -71,7 +71,13 @@ def _fd_get(path, **params):
 def fetch_matches():
     """Recent results, upcoming fixtures and La Liga table. Empty dict if no token."""
     if not config.FOOTBALL_DATA_TOKEN:
-        print("[matches] FOOTBALL_DATA_TOKEN not set, skipping match data")
+        if site.enabled():
+            try:
+                data = site.call("matches", timeout=60)
+                return {"results": data.get("results", []), "fixtures": data.get("fixtures", []), "table": []}
+            except Exception as e:  # noqa: BLE001
+                print(f"[matches] site lookup failed: {e}")
+        print("[matches] no match data available")
         return {}
     today = datetime.now(timezone.utc).date()
     out = {"results": [], "fixtures": [], "table": []}
