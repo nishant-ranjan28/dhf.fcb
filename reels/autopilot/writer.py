@@ -53,6 +53,7 @@ SCHEMA = {
 }
 
 GROQ_PAUSE = 20  # seconds between Groq calls, to stay under the tokens-per-minute limit
+RATE_LIMIT_WAIT = 50
 
 SYSTEM = f"""You write scripts for short vertical videos (Facebook Reels, 30-45 seconds) for the
 fan page "{config.PAGE_NAME}" ({config.PAGE_HANDLE}), an unofficial {config.TEAM_NAME} fan page.
@@ -143,7 +144,14 @@ def _llm(system, prompt):
         if r.status_code >= 400:
             raise RuntimeError(f"Groq HTTP {r.status_code}: {r.text[:300]}")
         return r.json()["choices"][0]["message"]["content"]
-    return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
+    try:
+        return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
+    except RuntimeError as e:
+        if "429" not in str(e):
+            raise
+        print("[writer] Groq rate limit, waiting before one retry")
+        time.sleep(RATE_LIMIT_WAIT)
+        return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
 
 
 def _material_text(kind, material):
@@ -175,7 +183,8 @@ def _write(kind, material, count, avoid, photo=False):
                "'match' only for a fixture or result listed in MATCH DATA.")
     else:
         ask = (f"Write {count} different videos, format 'fact' or 'stats', each built on one surprising, "
-               "specific fact from the material. Use 'stats' when the hook is a number.")
+               "specific fact from the material. Use 'stats' when the hook is a number. Every video must be about "
+               "a different fact, and from a different article where there is more than one.")
     prompt = (f"Today is {today}. {ask}\nDo not repeat these recent titles: {json.dumps(list(avoid)[-30:])}\n\n"
               f"<material>\n{_material_text(kind, material)}\n</material>")
     videos = [v for v in (_tidy(v) for v in _extract_videos(_llm(_json_system(), prompt))) if v]
@@ -236,7 +245,7 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
     n_fact = count - n_news if passages else 0
     plan = [("news", {"news": news[:10], "matches": matches, "squad": squad or {}}, n_news),
             ("fact", {"passages": passages}, n_fact)]
-    out, avoid = [], list(recent_titles)
+    out, avoid, seen_numbers = [], list(recent_titles), set()
     for kind, material, want in plan:
         got = 0
         for _attempt in range(2):  # one retry if the checker rejects drafts
@@ -249,9 +258,14 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
                 continue
             for v in drafts:
                 avoid.append(v["title"])
-                if _verify(v, kind, material):
+                numbers = {s.get("stat_value") for s in v["segments"] if s.get("stat_value")}
+                if numbers & seen_numbers:
+                    print(f"[writer] skipped '{v['title']}': same headline number as an earlier draft")
+                    continue
+                if got < want and _verify(v, kind, material):
                     out.append(v)
                     got += 1
+                    seen_numbers |= numbers
     return out
 
 
@@ -281,7 +295,8 @@ def write_photo_posts(news, count, recent_titles=(), squad=None):
     """Short, fact-checked news posts to go out with a headline card image."""
     if count <= 0 or not news:
         return []
-    material = {"news": news, "matches": {}, "squad": squad or {}}
+    # a smaller prompt than the video batch: this call runs late in the minute's token budget
+    material = {"news": [{**n, "summary": n["summary"][:500]} for n in news[:7]], "matches": {}, "squad": squad or {}}
     out = []
     try:
         drafts = _write("news", material, count, recent_titles, photo=True)
