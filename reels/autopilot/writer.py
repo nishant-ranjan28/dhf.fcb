@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from . import config
+from . import config, site
 
 FORMATS = {
     "news": "BARÇA NEWS",
@@ -78,7 +78,8 @@ def write_scripts(news, matches, count, recent_titles=()):
     today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
     material = {
         "today_utc": today,
-        "news": news,
+        "news": news if config.ANTHROPIC_API_KEY else [  # keep the prompt small for Groq's free tier
+            {**n, "summary": n["summary"][:160], "link": ""} for n in news[:14]],
         "matches": matches,
         "recently_posted_titles_do_not_repeat": list(recent_titles)[-40:],
     }
@@ -88,7 +89,12 @@ def write_scripts(news, matches, count, recent_titles=()):
         "last 24h; include at least one 'fact' or 'stats' video. Skip weak or duplicate stories.\n\n"
         f"<material>\n{json.dumps(material, ensure_ascii=False, indent=1)}\n</material>"
     )
-    videos = _ask_claude(prompt) if config.ANTHROPIC_API_KEY else _ask_groq(prompt)
+    if config.ANTHROPIC_API_KEY:
+        videos = _ask_claude(prompt)
+    elif config.GROQ_API_KEY or not site.enabled():
+        videos = _ask_groq(prompt)
+    else:
+        videos = _ask_site(prompt)
     return [v for v in (_tidy(v) for v in videos) if v][:count]
 
 
@@ -109,12 +115,30 @@ def _ask_claude(prompt):
     raise RuntimeError("Claude returned no scripts")
 
 
+def _json_system():
+    return (SYSTEM + "\nReply with ONE JSON object and nothing else, matching this JSON Schema:\n"
+            + json.dumps(SCHEMA))
+
+
+def _ask_site(prompt):
+    """Have the website call Groq with the key stored in Vercel."""
+    last = None
+    for _ in range(2):
+        try:
+            videos = json.loads(site.call("scripts", system=_json_system(), prompt=prompt)["content"]).get("videos")
+            if videos:
+                return videos
+            last = "no videos in reply"
+        except Exception as e:  # noqa: BLE001
+            last = str(e)
+    raise RuntimeError(f"Site returned no scripts ({last})")
+
+
 def _ask_groq(prompt):
     """Same job on Groq's OpenAI-compatible API (the key the site's autopost already uses)."""
     if not config.GROQ_API_KEY:
         raise RuntimeError("Set ANTHROPIC_API_KEY or GROQ_API_KEY")
-    system = (SYSTEM + "\nReply with ONE JSON object and nothing else, matching this JSON Schema:\n"
-              + json.dumps(SCHEMA))
+    system = _json_system()
     last = None
     for _ in range(2):
         r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=180,

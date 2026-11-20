@@ -7,11 +7,11 @@ Daily original Barça Reels for **Die Hard Fans of FC Barcelona** (facebook.com/
                     ─ Claude writes 4 original scripts (news / matchday / did-you-know / stats)
                     ─ free-licence photos for each line (Wikipedia / Wikimedia Commons / Pexels), credited on screen
                     ─ AI voice (Kokoro, free, offline) + 1080x1920 video render
-                    ─ drafts sent to your Telegram with ✅ / ❌ buttons
-   you      Tap ✅ — or reply to a draft with a 🎙 voice note to use your own voice
+                    ─ drafts listed in a GitHub issue for approval (or sent to Telegram)
+   you      Comment `approve 1 3` on the drafts issue (or use Telegram: tap ✅ / reply with a 🎙 voice note)
 12:30 · 16:00 · 19:30 · 22:00 · 00:30 IST
            Publish ─ reads your taps / voice notes, posts ONE approved Reel to the Page
-                    ─ sends you the Reel link in Telegram
+                    ─ replies on the issue with the Reel link
 ```
 
 Nothing is posted without your approval unless you turn on `AUTO_APPROVE` or `AUTO_APPROVE_AFTER_HOURS`.
@@ -24,20 +24,27 @@ Everything lives in `reels/` and runs from three workflows: **Reels - generate d
 ### 1. Try it with no keys
 **Actions → Reels - preview (no keys needed) → Run workflow.** It renders the sample script with real photos and attaches the video to the run.
 
-### 2. Repo secrets  (Settings → Secrets and variables → Actions → *Secrets*)
-The first four use the same names and values as the site's Vercel env vars, so copy them across.
+### 2. Keys: nothing new to add
+The workflows reuse the repo's existing `CRON_TOKEN` secret (the one the auto-post trigger uses) to call `POST /api/cron/reels` on the site. The site then uses the keys it already has in Vercel:
 
-| Secret | Notes |
+| Job | Site action | Vercel env var used |
+|---|---|---|
+| Write the scripts | `scripts` | `GROQ_API_KEY` |
+| Fixtures and results | `matches` | `FOOTBALL_DATA_API_KEY` |
+| Upload and publish the Reel, add the link comment | `publish` | `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` |
+
+The `publish` action only accepts videos from this repo's `queue` release. The link comment needs `pages_manage_engagement` on the Page token; without it the comment is skipped and the Reel still posts.
+
+**Approval happens in a GitHub issue.** Each morning the generate job opens an issue called "Reel drafts · <date>" with a link to every draft video, its script and its photo credits. Reply with `approve all`, `approve 1 3` or `reject 2`. Only comments from the repo owner or collaborators count. Nothing is posted without an approval.
+
+Optional repo secrets, if you want to change the defaults:
+
+| Secret | Effect |
 |---|---|
-| `FACEBOOK_PAGE_ID` | Same as Vercel |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | Same as Vercel. Needs `pages_manage_posts`; add `pages_manage_engagement` if you want the automatic link comment |
-| `GROQ_API_KEY` | Same as Vercel. Writes the scripts for free. Set `ANTHROPIC_API_KEY` instead (or as well) for better scripts |
-| `FOOTBALL_DATA_API_KEY` | Same as Vercel. Optional, but matchday videos need it |
-| `REELS_TELEGRAM_BOT_TOKEN` | A **new** bot from @BotFather, used only as your private approval inbox. Don't reuse the channel bot: its webhook or other readers would swallow your button taps |
-| `REELS_TELEGRAM_CHAT_ID` | Message the new bot once, open `https://api.telegram.org/bot<TOKEN>/getUpdates`, copy `message.chat.id` |
-| `PEXELS_API_KEY` | Optional, free at pexels.com/api: generic stock photos |
-
-Without the two Telegram secrets every draft is auto-approved and posted with no review.
+| `REELS_TELEGRAM_BOT_TOKEN` + `REELS_TELEGRAM_CHAT_ID` | Approve in Telegram instead of an issue, and reply with a voice note to use your own voice. Use a new bot, not the channel bot |
+| `ANTHROPIC_API_KEY` | Better scripts than Groq |
+| `PEXELS_API_KEY` | Generic stock photos |
+| `GROQ_API_KEY`, `FOOTBALL_DATA_API_KEY`, `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` | Call those services directly from the workflow instead of through the site |
 
 ### 3. Optional variables  (same page → *Variables*)
 
@@ -52,7 +59,7 @@ Without the two Telegram secrets every draft is auto-approved and posted with no
 | `COMMENT_LINK` | `true` | First comment on each Reel links to the site |
 
 ### 4. First real run
-**Actions → Reels - generate drafts → Run workflow.** Drafts arrive in Telegram in about 10 minutes. Approve one, then run **Reels - publish** to post it immediately. Scheduled runs only start once these workflows are on the default branch.
+**Actions → Reels - generate drafts → Run workflow.** A drafts issue appears in about 10 minutes. Comment `approve 1`, then run **Reels - publish** to post it immediately. Scheduled runs only start once these workflows are on the default branch.
 
 ## Daily use (2–5 minutes)
 - **✅ / ❌** on each draft.

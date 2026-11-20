@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write            # the draft queue is stored on a GitHub release
+  issues: write              # drafts are listed in an issue for approval
 
 concurrency:
   group: reels-queue
@@ -38,7 +39,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          # Same names as the site's Vercel env vars, so the values can be copied across.
+          # With only CRON_TOKEN (already set for auto-post), scripts, match data and publishing
+          # go through the site, which holds the Groq and Facebook keys in Vercel.
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          # Optional: set these to bypass the site. Same names as the Vercel env vars.
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_API_KEY }}
