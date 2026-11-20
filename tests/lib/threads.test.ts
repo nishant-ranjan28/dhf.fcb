@@ -99,6 +99,67 @@ describe("postToThreads", () => {
     expect(String(calls[2][0])).toContain("/me-user/threads");
   });
 
+  it("retries publish on transient Media Not Found error", async () => {
+    configure();
+    let publishAttempts = 0;
+    const mock = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("refresh_access_token")) {
+        return new Response(JSON.stringify({ error: { message: "too new" } }), { status: 400 });
+      }
+      if (u.endsWith("/threads") && !u.includes("publish")) {
+        return new Response(JSON.stringify({ id: "creation-1" }), { status: 200 });
+      }
+      if (u.includes("threads_publish")) {
+        publishAttempts++;
+        if (publishAttempts === 1) {
+          return new Response(
+            JSON.stringify({
+              error: {
+                message: "The requested resource does not exist",
+                code: 24,
+                error_subcode: 4279009,
+                error_user_title: "Media Not Found",
+              },
+            }),
+            { status: 400 },
+          );
+        }
+        return new Response(JSON.stringify({ id: "post-1" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: "post-1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", mock);
+    const r = await postToThreads({ title: "hi", url: "https://s.com/x" });
+    expect(r.ok).toBe(true);
+    expect(r.id).toBe("post-1");
+    expect(publishAttempts).toBe(2);
+  });
+
+  it("does not retry publish on non-transient errors", async () => {
+    configure();
+    let publishAttempts = 0;
+    const mock = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("refresh_access_token")) {
+        return new Response(JSON.stringify({ error: { message: "too new" } }), { status: 400 });
+      }
+      if (u.endsWith("/threads") && !u.includes("publish")) {
+        return new Response(JSON.stringify({ id: "creation-1" }), { status: 200 });
+      }
+      if (u.includes("threads_publish")) {
+        publishAttempts++;
+        return new Response("forbidden", { status: 403 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    vi.stubGlobal("fetch", mock);
+    const r = await postToThreads({ title: "hi", url: "https://s.com/x" });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/403/);
+    expect(publishAttempts).toBe(1);
+  });
+
   it("returns ok=false when creation fails", async () => {
     configure();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("bad", { status: 400 })));
