@@ -1,0 +1,61 @@
+{
+ "format": "fact",
+ "title": "The newspaper ad that created Barça",
+ "segments": [
+  {
+   "say": "On 29 November, Barça turns 127 years old.",
+   "emphasis": "127 years old",
+   "stat_value": "127",
+   "stat_label": "years of Barça",
+   "image_query": "Camp Nou",
+   "image_type": "entity"
+  },
+  {
+   "say": "And it all started with a newspaper advert placed by a Swiss man called Joan Gamper.",
+   "emphasis": "newspaper advert",
+   "image_query": "Barcelona",
+   "image_type": "entity"
+  },
+  {
+   "say": "He was looking for players to start a brand new football club in the city.",
+   "emphasis": "players",
+   "image_query": "football players training",
+   "image_type": "stock"
+  },
+  {
+   "say": "On 29 November 1899, Futbol Club Barcelona was born.",
+   "emphasis": "was born",
+   "stat_value": "1899",
+   "stat_label": "the year it began",
+   "image_query": "Camp Nou",
+   "image_type": "entity"
+  },
+  {
+   "say": "Those famous blue and garnet colours? One popular theory links them to Gamper's old club, FC Basel.",
+   "emphasis": "blue and garnet",
+   "image_query": "St. Jakob-Park",
+   "image_type": "entity"
+  },
+  {
+   "say": "More than a century later, Barça is still owned by its members. That's why it's more than a club.",
+   "emphasis": "more than a club",
+   "image_query": "Camp Nou",
+   "image_type": "entity"
+  },
+  {
+   "say": "How long have you been a culer? Tell us below, and follow for daily Barça updates.",
+   "emphasis": "culer",
+   "image_query": "football fans stadium",
+   "image_type": "stock"
+  }
+ ],
+ "fb_caption": "One newspaper advert in 1899 started it all. Barça turns 127 on 29 November! 💙❤️\nHow long have you been a culer?",
+ "hashtags": [
+  "#FCBarcelona",
+  "#Barça",
+  "#ForçaBarça",
+  "#Barca127",
+  "#MesQueUnClub"
+ ],
+ "source_urls": []
+}

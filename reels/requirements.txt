@@ -1,0 +1,7 @@
+anthropic>=0.40
+feedparser>=6.0
+requests>=2.31
+Pillow>=10.0
+kokoro-onnx>=0.4
+soundfile>=0.12
+edge-tts>=6.1
