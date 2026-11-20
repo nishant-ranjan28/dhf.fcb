@@ -1,0 +1,37 @@
+name: Reels - preview (no keys needed)
+
+# Renders reels/samples/sample_fact.json with real free-licence photos and the AI voice.
+# Needs no secrets. Download the video from the run's Artifacts section.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: reels
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: reels/requirements.txt
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -r requirements.txt
+      - name: Cache voice model
+        uses: actions/cache@v4
+        with:
+          path: reels/models
+          key: kokoro-v1.0
+      - run: python -m autopilot sample
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-reel
+          path: reels/work/sample/sample.mp4
