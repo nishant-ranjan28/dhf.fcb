@@ -52,84 +52,59 @@ SCHEMA = {
     "required": ["videos"],
 }
 
-GROQ_PAUSE = 20  # seconds between Groq batches
+GROQ_PAUSE = 20  # seconds between Groq calls, to stay under the tokens-per-minute limit
 
 SYSTEM = f"""You write scripts for short vertical videos (Facebook Reels, 30-45 seconds) for the
 fan page "{config.PAGE_NAME}" ({config.PAGE_HANDLE}), an unofficial {config.TEAM_NAME} fan page.
 Language: {config.LANGUAGE}. Voice: an excited but credible fan-journalist talking to fellow fans.
 
-Hard rules:
-- Accuracy first. News and match videos may ONLY use facts present in the supplied material.
-  Never invent scores, quotes, injuries, transfer fees or dates.
-- Rumours must be framed as rumours ("reports in Spain claim..."), naming the outlet if known.
-- Fact videos use well-established club history you are certain of. If unsure, pick another fact.
-- Write everything in your own words. Never copy a headline or sentence from the material.
+ACCURACY RULES. These matter more than anything else:
+- You may ONLY state facts that appear in the <material> you are given. Your own memory of
+  football is unreliable: do not add any name, number, date, score, position, role, transfer fee,
+  record or event that is not written in the material. If the material is thin, write a shorter
+  video (4 lines is fine) rather than padding it with things you believe to be true.
+- Never write a direct quote. Do not use quotation marks at all. Report what was said in your own
+  words only if the material itself reports it.
+- Rumours must be framed as rumours ("reports in Spain claim..."), naming the outlet.
+- stat_value must be a number or score that appears in the material, exactly.
+- Write in your own words; never copy a sentence from the material.
+
+STYLE:
+- Line 1 is a hook that makes people stop scrolling. The final line is a varied call to follow the
+  page or comment. Opinions, questions to the audience and calls to action are always allowed.
+- Spoken lines are short and rhythmic. 50-110 spoken words per video.
 - No hate, no mocking players' appearance, no betting, no engagement bait like "share or bad luck".
-- Spoken lines are short and rhythmic. Line 1 is a hook that makes people stop scrolling.
-  The final line is a varied call to follow the page or comment.
-- Total spoken length 75-115 words per video.
-- Visuals: give most lines an image_query so the video shows real photos. Use 'entity' for the
-  specific player, coach, stadium, city or trophy the line is about (lines without a stat_value
-  show the photo large). Use 'stock' for generic atmosphere. Lines that carry a stat_value still
-  benefit from an image_query (it becomes the blurred backdrop). Never ask for club crests, logos,
-  kits or screenshots, and vary the images across the video.
-- News and match videos must set source_name to the outlet(s) that reported the story.
+- Visuals: give most lines an image_query. Use 'entity' with the exact Wikipedia article name of the
+  player, coach, stadium, city or trophy the line is about. Use 'stock' with 2-4 generic words for
+  atmosphere. Never ask for club crests, logos, kits or screenshots, and vary the images.
+- News and match videos must set source_name to the outlet(s) named in the material.
 """
 
-
-def _prompt(news, matches, count, avoid):
-    today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
-    material = {
-        "today_utc": today,
-        "news": news if config.ANTHROPIC_API_KEY else [  # keep the prompt small for Groq's free tier
-            {**n, "summary": (n.get("summary") or "")[:160], "link": ""} for n in news[:14]],
-        "matches": matches,
-        "recently_posted_titles_do_not_repeat": list(avoid)[-40:],
-    }
-    return (
-        f"Write {count} different videos for today. Mix formats sensibly: lead with the biggest real "
-        "news or match story; use 'match' when there is a fixture in the next 48h or a result in the "
-        "last 24h; include at least one 'fact' or 'stats' video across the day. Skip weak or duplicate "
-        "stories.\n\n"
-        f"<material>\n{json.dumps(material, ensure_ascii=False, indent=1)}\n</material>"
-    )
+CHECK_SYSTEM = """You are a strict fact-checker for football video scripts. You get MATERIAL and a
+numbered SCRIPT. For every script line, decide whether each factual claim in it (names, numbers,
+dates, scores, positions, roles, records, events, quotes) is directly supported by the MATERIAL.
+Ignore opinions, questions to the audience, greetings and calls to follow or comment.
+Use only the MATERIAL, never your own knowledge.
+Reply with ONE JSON object and nothing else:
+{"unsupported": [{"line": <number>, "claim": "<the unsupported claim>"}]}
+Return an empty list if every factual claim is supported."""
 
 
-def write_scripts(news, matches, count, recent_titles=()):
-    if config.ANTHROPIC_API_KEY:
-        videos = _ask_claude(_prompt(news, matches, count, recent_titles))
-        return [v for v in (_tidy(v) for v in videos) if v][:count]
-    # Groq's free tier has a small output budget, so ask for two videos at a time.
-    ask = _ask_groq if (config.GROQ_API_KEY or not site.enabled()) else _ask_site
-    out, avoid, errors = [], list(recent_titles), 0
-    while len(out) < count and errors < 2:
-        if out or errors:
-            time.sleep(GROQ_PAUSE)  # stay under the tokens-per-minute limit
-        need = min(2, count - len(out))
-        hint = "" if out else " Start with the biggest story."
-        if out and not any(v["format"] in ("fact", "stats") for v in out):
-            hint = " At least one of these must be a 'fact' or 'stats' video."
-        try:
-            batch = [v for v in (_tidy(v) for v in ask(_prompt(news, matches, need, avoid) + hint)) if v]
-        except Exception as e:  # noqa: BLE001
-            print(f"[writer] batch failed: {e}")
-            batch = []
-        if not batch:
-            errors += 1
-            continue
-        out += batch[:need]
-        avoid += [v["title"] for v in batch]
-    if not out:
-        raise RuntimeError("No scripts could be written")
-    return out[:count]
+def _json_system():
+    return (SYSTEM + "\nReply with ONE JSON object and nothing else (no markdown, no commentary), matching this "
+            "JSON Schema:\n" + json.dumps(SCHEMA))
 
 
-def _extract_videos(text):
+def _extract_json(text):
     """Pull the JSON object out of a model reply that may wrap it in prose or a code fence."""
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
         raise ValueError("no JSON object in reply")
-    data = json.loads(text[start:end + 1])
+    return json.loads(text[start:end + 1])
+
+
+def _extract_videos(text):
+    data = _extract_json(text)
     videos = data.get("videos") if isinstance(data, dict) else None
     if isinstance(data, dict) and videos is None and data.get("segments"):
         videos = [data]  # a single video returned bare
@@ -138,45 +113,116 @@ def _extract_videos(text):
     return videos
 
 
-def _ask_claude(prompt):
-    import anthropic
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    resp = client.messages.create(
-        model=config.CLAUDE_MODEL,
-        max_tokens=8000,
-        system=SYSTEM,
-        tools=[{"name": "save_videos", "description": "Save the video scripts", "input_schema": SCHEMA}],
-        tool_choice={"type": "tool", "name": "save_videos"},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    for block in resp.content:
-        if block.type == "tool_use":
-            return block.input.get("videos", [])
-    raise RuntimeError("Claude returned no scripts")
+_calls = 0
 
 
-def _json_system():
-    return (SYSTEM + "\nReply with ONE JSON object and nothing else (no markdown, no commentary), matching this "
-            "JSON Schema:\n" + json.dumps(SCHEMA))
+def _llm(system, prompt):
+    """One text completion from whichever provider is configured."""
+    global _calls
+    if config.ANTHROPIC_API_KEY:
+        import anthropic
+        resp = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY).messages.create(
+            model=config.CLAUDE_MODEL, max_tokens=6000, system=system,
+            messages=[{"role": "user", "content": prompt}])
+        return "".join(b.text for b in resp.content if b.type == "text")
+    if _calls:
+        time.sleep(GROQ_PAUSE)
+    _calls += 1
+    if config.GROQ_API_KEY or not site.enabled():
+        if not config.GROQ_API_KEY:
+            raise RuntimeError("Set ANTHROPIC_API_KEY, GROQ_API_KEY or CRON_TOKEN")
+        r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=180,
+                          headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
+                          json={"model": config.GROQ_MODEL, "temperature": 0.4, "max_tokens": 4096,
+                                "messages": [{"role": "system", "content": system},
+                                             {"role": "user", "content": prompt}]})
+        if r.status_code >= 400:
+            raise RuntimeError(f"Groq HTTP {r.status_code}: {r.text[:300]}")
+        return r.json()["choices"][0]["message"]["content"]
+    return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
 
 
-def _ask_site(prompt):
-    """Have the website call Groq with the key stored in Vercel."""
-    return _extract_videos(site.call("scripts", system=_json_system(), prompt=prompt)["content"])
+def _material_text(kind, material):
+    if kind == "news":
+        parts = [f"[{i}] {n['title']} (outlet: {n.get('source') or 'unknown'})\n{n.get('summary', '')}"
+                 for i, n in enumerate(material["news"], 1)]
+        if material.get("matches"):
+            parts.append("MATCH DATA: " + json.dumps(material["matches"], ensure_ascii=False))
+        return "\n\n".join(parts)
+    return "\n\n".join(f"[From the Wikipedia article '{p['title']}']\n{p['text']}" for p in material["passages"])
 
 
-def _ask_groq(prompt):
-    """Same job straight against Groq's OpenAI-compatible API."""
-    if not config.GROQ_API_KEY:
-        raise RuntimeError("Set ANTHROPIC_API_KEY, GROQ_API_KEY or CRON_TOKEN")
-    r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=180,
-                      headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
-                      json={"model": config.GROQ_MODEL, "temperature": 0.7, "max_tokens": 4096,
-                            "messages": [{"role": "system", "content": _json_system()},
-                                         {"role": "user", "content": prompt}]})
-    if r.status_code >= 400:
-        raise RuntimeError(f"Groq HTTP {r.status_code}: {r.text[:300]}")
-    return _extract_videos(r.json()["choices"][0]["message"]["content"])
+def _write(kind, material, count, avoid):
+    today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
+    if kind == "news":
+        ask = (f"Write {count} different videos, format 'news' or 'match', each about ONE story from the "
+               "material. Pick the stories with the most detail and the most interest for Barça fans. Use "
+               "'match' only for a fixture or result listed in MATCH DATA.")
+    else:
+        ask = (f"Write {count} different videos, format 'fact' or 'stats', each built on one surprising, "
+               "specific fact from the material. Use 'stats' when the hook is a number.")
+    prompt = (f"Today is {today}. {ask}\nDo not repeat these recent titles: {json.dumps(list(avoid)[-30:])}\n\n"
+              f"<material>\n{_material_text(kind, material)}\n</material>")
+    videos = [v for v in (_tidy(v) for v in _extract_videos(_llm(_json_system(), prompt))) if v]
+    for v in videos:
+        if kind != "news":
+            v.pop("source_name", None)
+            if v["format"] not in ("fact", "stats"):
+                v["format"] = "fact"
+        elif v["format"] not in ("news", "match"):
+            v["format"] = "news"
+    return videos[:count]
+
+
+QUOTE_MARKS = ('"', "“", "”", "«", "»")
+
+
+def _verify(video, kind, material):
+    """True if an independent check finds every factual claim in the material. Fails closed."""
+    lines = [s["say"] + (f" [on-screen number: {s['stat_value']}]" if s.get("stat_value") else "")
+             for s in video["segments"]]
+    if any(q in line for line in lines for q in QUOTE_MARKS):
+        print(f"[check] dropped '{video['title']}': contains a direct quote")
+        return False
+    script = f"0. (headline) {video['title']}\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(lines, 1))
+    try:
+        reply = _extract_json(_llm(CHECK_SYSTEM, f"MATERIAL:\n{_material_text(kind, material)}\n\nSCRIPT:\n{script}"))
+        bad = reply.get("unsupported")
+        if not isinstance(bad, list):
+            raise ValueError("no 'unsupported' list in reply")
+    except Exception as e:  # noqa: BLE001
+        print(f"[check] dropped '{video['title']}': check failed ({e})")
+        return False
+    if bad:
+        claims = "; ".join(str(b.get("claim", b))[:80] if isinstance(b, dict) else str(b)[:80] for b in bad[:3])
+        print(f"[check] dropped '{video['title']}': unsupported -> {claims}")
+        return False
+    return True
+
+
+def write_scripts(news, matches, passages, count, recent_titles=()):
+    """Write and fact-check scripts. Returns fewer than `count` (or none) rather than unverified ones."""
+    n_news = (count + 1) // 2 if news else 0
+    n_fact = count - n_news if passages else 0
+    plan = [("news", {"news": news[:10], "matches": matches}, n_news),
+            ("fact", {"passages": passages}, n_fact)]
+    out, avoid = [], list(recent_titles)
+    for kind, material, want in plan:
+        got = 0
+        for _attempt in range(2):  # one retry if the checker rejects drafts
+            if got >= want:
+                break
+            try:
+                drafts = _write(kind, material, want - got, avoid)
+            except Exception as e:  # noqa: BLE001
+                print(f"[writer] {kind} batch failed: {e}")
+                continue
+            for v in drafts:
+                avoid.append(v["title"])
+                if _verify(v, kind, material):
+                    out.append(v)
+                    got += 1
+    return out
 
 
 def _tidy(v):

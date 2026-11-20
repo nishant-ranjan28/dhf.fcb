@@ -38,8 +38,9 @@ def cmd_generate(args):
     matches = sources.fetch_matches()
     recent = state.get("history_titles", []) + [i["script"]["title"] for i in state["items"]]
     count = args.count or config.DAILY_VIDEOS
-    scripts = writer.write_scripts(news, matches, count, recent)
-    print(f"[generate] {len(scripts)} scripts")
+    passages = sources.fetch_fact_passages(count // 2)
+    scripts = writer.write_scripts(news, matches, passages, count, recent)
+    print(f"[generate] {len(scripts)} of {count} scripts passed the fact check")
     tg, gi = telegram.enabled(), ghissue.enabled()
     review = tg or gi
     if not review and not config.AUTO_APPROVE:

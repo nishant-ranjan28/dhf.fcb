@@ -43,9 +43,33 @@ describe("/api/cron/reels", () => {
     );
     const r = await POST(req({ action: "scripts", system: "s", prompt: "p" }));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, content: '{"videos":[]}' });
+    expect(await r.json()).toEqual({ ok: true, content: '{"videos":[]}', model: "openai/gpt-oss-20b" });
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer groq-key");
+  });
+
+  it("uses an allowed larger model and falls back to the site model if it is unavailable", async () => {
+    const models: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const model = (JSON.parse(String(init?.body)) as { model: string }).model;
+      models.push(model);
+      return model === "openai/gpt-oss-120b"
+        ? res({ error: { message: "model not found" } }, 404)
+        : res({ choices: [{ message: { content: "{}" } }] });
+    });
+    const r = await POST(req({ action: "scripts", system: "s", prompt: "p", model: "openai/gpt-oss-120b" }));
+    expect(await r.json()).toEqual({ ok: true, content: "{}", model: "openai/gpt-oss-20b" });
+    expect(models).toEqual(["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
+  });
+
+  it("ignores a model that is not on the allow-list", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      res({ choices: [{ message: { content: "{}" } }] }),
+    );
+    await POST(req({ action: "scripts", system: "s", prompt: "p", model: "some/expensive-model" }));
+    expect((JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)) as { model: string }).model).toBe(
+      "openai/gpt-oss-20b",
+    );
   });
 
   it("reports a Groq failure as 502 without throwing", async () => {
