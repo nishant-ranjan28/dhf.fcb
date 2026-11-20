@@ -24,7 +24,11 @@ export async function POST(req: Request) {
       if (!str("system") || !str("prompt")) {
         return NextResponse.json({ error: "system and prompt are required" }, { status: 400 });
       }
-      const r = await generateReelScripts({ system: str("system"), prompt: str("prompt") });
+      const r = await generateReelScripts({
+        system: str("system"),
+        prompt: str("prompt"),
+        model: str("model") || undefined,
+      });
       return NextResponse.json(r, { status: r.ok ? 200 : 502 });
     }
     case "matches": {

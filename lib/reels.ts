@@ -30,10 +30,28 @@ export function allowedVideoPrefix(): string {
 }
 
 /** Ask Groq for a JSON object. Returns the model's text; the caller extracts the JSON. */
+// The site's default (gpt-oss-20b) invents football facts in longer scripts, so
+// the Reels job may ask for a larger model from this list.
+const REEL_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"];
+
 export async function generateReelScripts(opts: {
   system: string;
   prompt: string;
-}): Promise<ReelsResult<{ content: string }>> {
+  model?: string;
+}): Promise<ReelsResult<{ content: string; model: string }>> {
+  const wanted = opts.model && REEL_MODELS.includes(opts.model) ? opts.model : env.groqModel;
+  const first = await groqText(opts, wanted);
+  // An unavailable or unknown model must not stop the day's drafts.
+  if (!first.ok && wanted !== env.groqModel && /HTTP (400|403|404)/.test(first.error)) {
+    return groqText(opts, env.groqModel);
+  }
+  return first;
+}
+
+async function groqText(
+  opts: { system: string; prompt: string },
+  model: string,
+): Promise<ReelsResult<{ content: string; model: string }>> {
   const apiKey = env.groqApiKey;
   if (!apiKey) return fail("GROQ_API_KEY is not configured");
   try {
@@ -41,8 +59,8 @@ export async function generateReelScripts(opts: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
-        model: env.groqModel,
-        temperature: 0.7,
+        model,
+        temperature: 0.4,
         // Same lesson as lib/autopost/generate.ts: gpt-oss spends reasoning
         // tokens first, and Groq's strict JSON mode rejects the reply with
         // json_validate_failed. Ask for JSON in the prompt and let the caller
@@ -60,7 +78,7 @@ export async function generateReelScripts(opts: {
     const json = JSON.parse(text) as { choices?: { message?: { content?: string } }[] };
     const content = json.choices?.[0]?.message?.content;
     if (!content) return fail("Groq returned no content");
-    return { ok: true, content };
+    return { ok: true, content, model };
   } catch (err) {
     return fail(message(err));
   }

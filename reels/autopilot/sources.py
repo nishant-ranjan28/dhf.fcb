@@ -1,4 +1,5 @@
 """Collect raw material: recent Barça news (RSS) and fixtures/results/table (football-data.org)."""
+import random
 import re
 import time
 import urllib.parse
@@ -27,7 +28,77 @@ def _norm(title):
     return re.sub(r"[^a-z0-9 ]", "", title.lower())[:80]
 
 
+def _site_news(max_age_hours):
+    """Barça stories from the site's own feed (BBC, ESPN, Marca, Mundo Deportivo), with real summaries."""
+    r = requests.get(f"{config.SITE_URL.rstrip('/')}/api/news", headers=UA, timeout=30,
+                     params={"category": "barca", "limit": 40})
+    r.raise_for_status()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+    outlets = {"bbc": "BBC Sport", "espn": "ESPN", "marca": "Marca", "md": "Mundo Deportivo",
+               "mundodeportivo": "Mundo Deportivo"}
+    items = []
+    for p in r.json().get("posts", []):
+        summary = _clean(p.get("content"))
+        try:
+            when = datetime.fromisoformat(str(p.get("createdAt", "")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if when < cutoff or len(summary) < 80 or not p.get("link"):
+            continue  # too old, too thin to write from, or not a sourced article
+        host = urllib.parse.urlparse(p["link"]).netloc.lower().removeprefix("www.")
+        source = outlets.get(str(p.get("slug", "")).split("-")[0]) or \
+            next((v for k, v in outlets.items() if k in host), host)
+        items.append({"title": _clean(p.get("title")), "summary": summary[:600], "source": source,
+                      "link": p["link"], "published": when.isoformat()})
+    items.sort(key=lambda x: x["published"], reverse=True)
+    return items
+
+
+def fetch_fact_passages(count, used_titles=()):
+    """Random passages from Wikipedia articles about the club; the only allowed source for fact videos."""
+    pages = [p for p in config.FACT_PAGES if p not in used_titles] or list(config.FACT_PAGES)
+    random.shuffle(pages)
+    out = []
+    for title in pages:
+        if len(out) >= count:
+            break
+        try:
+            r = requests.get("https://en.wikipedia.org/w/api.php", timeout=30,
+                             headers={"User-Agent": f"dhf-autopilot/1.0 ({config.CONTACT_URL})"},
+                             params={"action": "query", "format": "json", "prop": "extracts", "explaintext": 1,
+                                     "exsectionformat": "plain", "redirects": 1, "titles": title})
+            r.raise_for_status()
+            page = next(iter(r.json()["query"]["pages"].values()))
+            text = page.get("extract") or ""
+        except Exception as e:  # noqa: BLE001
+            print(f"[facts] {title}: {e}")
+            continue
+        for stop in ("\nSee also\n", "\nReferences\n", "\nNotes\n", "\nExternal links\n"):
+            text = text.split(stop)[0]
+        paras = [p.strip() for p in text.split("\n") if len(p.strip()) > 200]
+        if not paras:
+            continue
+        start = random.randrange(len(paras))
+        chunk, size = [], 0
+        for p in paras[start:] + paras[:start]:
+            if size + len(p) > 2200 and chunk:
+                break
+            chunk.append(p[:2200])
+            size += len(p)
+        out.append({"title": page.get("title", title), "text": "\n".join(chunk)})
+    print(f"[facts] {len(out)} passage(s): {', '.join(p['title'] for p in out)}")
+    return out
+
+
 def fetch_news(max_items=30, max_age_hours=36):
+    if config.SITE_URL:
+        try:
+            items = _site_news(max_age_hours)
+            print(f"[news] {len(items)} fresh items from the site feed")
+            if len(items) >= 3:
+                return items[:max_items]
+        except Exception as e:  # noqa: BLE001
+            print(f"[news] site feed failed: {e}")
     feeds = [_google_news_url(q) for q in config.NEWS_QUERIES] + config.EXTRA_FEEDS
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     seen, items = set(), []

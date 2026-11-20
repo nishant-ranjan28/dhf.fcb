@@ -33,6 +33,12 @@ LANGUAGE = env("LANGUAGE", "English")
 CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5")
 NEWS_QUERIES = [q.strip() for q in env(
     "NEWS_QUERIES", '"FC Barcelona"|Barca Flick|Barcelona La Liga').split("|") if q.strip()]
+# Wikipedia articles that fact / stats videos are drawn from (one random passage each per video).
+FACT_PAGES = [p.strip() for p in env(
+    "FACT_PAGES", "FC Barcelona|History of FC Barcelona|List of FC Barcelona records and statistics|Camp Nou|"
+    "La Masia|El Clásico|FC Barcelona in international football|Joan Gamper|Johan Cruyff|Pep Guardiola|"
+    "Lionel Messi|Xavi|Andrés Iniesta|Carles Puyol|Ronaldinho|László Kubala|Dream Team (FC Barcelona)|"
+    "2008–09 FC Barcelona season|Més que un club|Estadi Olímpic Lluís Companys").split("|") if p.strip()]
 EXTRA_FEEDS = [f.strip() for f in env("NEWS_FEEDS", "").split(",") if f.strip()]
 
 # --- Voice -------------------------------------------------------------------
@@ -64,7 +70,7 @@ AUTO_APPROVE_AFTER_HOURS = float(env("AUTO_APPROVE_AFTER_HOURS", "0"))
 # --- Secrets -----------------------------------------------------------------
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY")
 GROQ_API_KEY = env("GROQ_API_KEY")            # used when no Anthropic key is set (free tier is enough)
-GROQ_MODEL = env("GROQ_MODEL", "openai/gpt-oss-20b")
+GROQ_MODEL = env("GROQ_MODEL", "openai/gpt-oss-120b")  # the 20b model invents facts; the site falls back to its own model if this one is unavailable
 FOOTBALL_DATA_TOKEN = env("FOOTBALL_DATA_TOKEN")
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID")
