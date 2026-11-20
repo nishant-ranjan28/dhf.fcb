@@ -85,11 +85,18 @@ a Meta app.
    Business**.
 2. Request `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, and
    make sure your user has the `CREATE_CONTENT` task on the Page.
-3. In Graph API Explorer, with that app selected and those scopes granted:
-   `GET /me/accounts?fields=id,name,tasks,access_token` → copy the Page `id` and
-   its `access_token`.
-4. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` in Vercel, then
-   redeploy.
+3. In Graph API Explorer, with that app selected and those scopes granted, use
+   **Get Token → Generate Access Token** and complete the Login for Business
+   flow, explicitly selecting the target Page (an empty `/me/accounts` usually
+   means no Page was selected in that flow).
+4. Exchange the short-lived User token for a ~60-day one:
+   `GET /oauth/access_token?grant_type=fb_exchange_token&client_id=<app-id>&client_secret=<app-secret>&fb_exchange_token=<user-token>`.
+   Then `GET /me/accounts?fields=id,name,tasks,access_token` with the long-lived
+   User token → copy the Page `id` and its `access_token`.
+5. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` in Vercel, then
+   redeploy. Verify with `/debug_token?input_token=<page-token>`: `type` should
+   be `PAGE`, `is_valid` true, and `expires_at` **0** (a Page token derived from
+   a long-lived User token never expires).
 
 Because the blog posts only to a Page you own and you are an admin of the app,
 **Standard Access is enough — no App Review or business verification**. A Page
