@@ -29,35 +29,46 @@ def _norm(title):
     return re.sub(r"[^a-z0-9 ]", "", title.lower())[:80]
 
 
-def fetch_rich_news(max_items=12, max_age_hours=48, min_chars=70):
-    """Stories with a real summary from the club feeds of established outlets."""
+BROWSER = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+           "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8"}
+CLUB = re.compile(r"bar[cç]a\b|barcelona|blaugrana", re.I)
+
+
+def fetch_rich_news(max_items=20, max_age_hours=48, min_chars=70):
+    """Fresh stories that come with real article text, newest first, spread across outlets."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     seen, items = set(), []
-    for outlet, url in config.RICH_FEEDS:
-        kept = 0
-        try:
-            feed = feedparser.parse(url, agent=UA["User-Agent"])
+    for name, url in config.RICH_FEEDS:
+        general, outlet = name.startswith("*"), name.lstrip("*").strip()
+        try:  # some outlets refuse feedparser's own user agent, so fetch like a browser
+            r = requests.get(url, headers=BROWSER, timeout=25)
+            r.raise_for_status()
+            entries = feedparser.parse(r.content).entries
         except Exception as e:  # noqa: BLE001
             print(f"[news] {outlet} failed: {e}")
             continue
-        for e in feed.entries:
+        kept = 0
+        for e in entries:
             when = getattr(e, "published_parsed", None) or getattr(e, "updated_parsed", None)
             if not when:
                 continue
             published = datetime.fromtimestamp(calendar.timegm(when), timezone.utc)
-            title, summary = _clean(e.get("title")), _clean(e.get("summary"))
+            title = _clean(e.get("title"))
+            body = _clean(e.content[0].get("value")) if e.get("content") else ""
+            text = body if len(body) > len(_clean(e.get("summary"))) else _clean(e.get("summary"))
             key = _norm(title)
-            if published < cutoff or len(summary) < min_chars or not title or key in seen:
+            if published < cutoff or len(text) < min_chars or not title or key in seen:
+                continue
+            if general and not CLUB.search(title + " " + text[:400]):
                 continue
             seen.add(key)
             kept += 1
-            items.append({"title": title, "summary": summary[:900], "source": outlet,
+            items.append({"title": title, "summary": text[:1000], "source": outlet,
                           "link": e.get("link", ""), "published": published.isoformat()})
-        print(f"[news] {outlet}: {kept} usable of {len(feed.entries)}")
+        print(f"[news] {outlet}: {kept} usable of {len(entries)}")
     items.sort(key=lambda x: x["published"], reverse=True)
-    # spread across outlets so one busy feed does not crowd out the rest
     out, per = [], {}
-    for it in items:
+    for it in items:  # no single outlet may take more than a third of the list
         if per.get(it["source"], 0) < max(3, max_items // 3):
             out.append(it)
             per[it["source"]] = per.get(it["source"], 0) + 1

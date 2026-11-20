@@ -53,6 +53,7 @@ SCHEMA = {
 }
 
 GROQ_PAUSE = 20  # seconds between Groq calls, to stay under the tokens-per-minute limit
+RATE_LIMIT_WAIT = 50
 
 SYSTEM = f"""You write scripts for short vertical videos (Facebook Reels, 30-45 seconds) for the
 fan page "{config.PAGE_NAME}" ({config.PAGE_HANDLE}), an unofficial {config.TEAM_NAME} fan page.
@@ -143,7 +144,14 @@ def _llm(system, prompt):
         if r.status_code >= 400:
             raise RuntimeError(f"Groq HTTP {r.status_code}: {r.text[:300]}")
         return r.json()["choices"][0]["message"]["content"]
-    return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
+    try:
+        return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
+    except RuntimeError as e:
+        if "429" not in str(e):
+            raise
+        print("[writer] Groq rate limit, waiting before one retry")
+        time.sleep(RATE_LIMIT_WAIT)
+        return site.call("scripts", system=system, prompt=prompt, model=config.GROQ_MODEL)["content"]
 
 
 def _material_text(kind, material):
@@ -161,15 +169,22 @@ def _material_text(kind, material):
     return "\n\n".join(f"[From the Wikipedia article '{p['title']}']\n{p['text']}" for p in material["passages"])
 
 
-def _write(kind, material, count, avoid):
+def _write(kind, material, count, avoid, photo=False):
     today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
-    if kind == "news":
+    if photo:
+        ask = (f"Write {count} different PHOTO POSTS, format 'news', each about ONE story from the material "
+               "that is not in the recent titles. A photo post is a headline card plus a short caption, so "
+               "write exactly 3 or 4 short lines: line 1 says what happened, the next lines add the key "
+               "details, and the last line asks fans a question. Give line 1 an 'entity' image_query naming "
+               "the main person or place of the story.")
+    elif kind == "news":
         ask = (f"Write {count} different videos, format 'news' or 'match', each about ONE story from the "
                "material. Pick the stories with the most detail and the most interest for Barça fans. Use "
                "'match' only for a fixture or result listed in MATCH DATA.")
     else:
         ask = (f"Write {count} different videos, format 'fact' or 'stats', each built on one surprising, "
-               "specific fact from the material. Use 'stats' when the hook is a number.")
+               "specific fact from the material. Use 'stats' when the hook is a number. Every video must be about "
+               "a different fact, and from a different article where there is more than one.")
     prompt = (f"Today is {today}. {ask}\nDo not repeat these recent titles: {json.dumps(list(avoid)[-30:])}\n\n"
               f"<material>\n{_material_text(kind, material)}\n</material>")
     videos = [v for v in (_tidy(v) for v in _extract_videos(_llm(_json_system(), prompt))) if v]
@@ -230,7 +245,7 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
     n_fact = count - n_news if passages else 0
     plan = [("news", {"news": news[:10], "matches": matches, "squad": squad or {}}, n_news),
             ("fact", {"passages": passages}, n_fact)]
-    out, avoid = [], list(recent_titles)
+    out, avoid, seen_numbers = [], list(recent_titles), set()
     for kind, material, want in plan:
         got = 0
         for _attempt in range(2):  # one retry if the checker rejects drafts
@@ -243,9 +258,14 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
                 continue
             for v in drafts:
                 avoid.append(v["title"])
-                if _verify(v, kind, material):
+                numbers = {s.get("stat_value") for s in v["segments"] if s.get("stat_value")}
+                if numbers & seen_numbers:
+                    print(f"[writer] skipped '{v['title']}': same headline number as an earlier draft")
+                    continue
+                if got < want and _verify(v, kind, material):
                     out.append(v)
                     got += 1
+                    seen_numbers |= numbers
     return out
 
 
@@ -269,3 +289,32 @@ def _tidy(v):
             tags.append(t)
     v["hashtags"] = tags[:6]
     return v
+
+
+def write_photo_posts(news, count, recent_titles=(), squad=None):
+    """Short, fact-checked news posts to go out with a headline card image."""
+    if count <= 0 or not news:
+        return []
+    # a smaller prompt than the video batch: this call runs late in the minute's token budget
+    material = {"news": [{**n, "summary": n["summary"][:500]} for n in news[:7]], "matches": {}, "squad": squad or {}}
+    out = []
+    try:
+        drafts = _write("news", material, count, recent_titles, photo=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[writer] photo batch failed: {e}")
+        return []
+    for v in drafts:
+        v["format"] = "news"
+        if _verify_photo(v, material):
+            out.append(v)
+    return out[:count]
+
+
+def _verify_photo(video, material):
+    """Same check as videos. A photo post is short, so pad the check (not the post) to four lines."""
+    pad = {"say": "Follow the page for more.", "_pad": True}
+    tmp = dict(video, segments=video["segments"] + [pad] * max(0, 4 - len(video["segments"])))
+    if not _verify(tmp, "news", material):
+        return False
+    video["segments"] = [s for s in tmp["segments"] if not s.get("_pad")]
+    return len(video["segments"]) >= 2

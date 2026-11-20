@@ -71,7 +71,9 @@ Optional repo secrets, if you want to change the defaults:
 - **Named people and places** (a player, the coach, a stadium): the lead photo of the Wikipedia article if it is freely licensed, otherwise a Wikimedia Commons search.
 - **Generic scenes**: Pexels (or Openverse, which indexes Creative Commons photos from Flickr and others, when there is no Pexels key), then Commons.
 - Only CC0, public-domain, CC BY and CC BY-SA files are accepted. Crests, logos, kits and anything non-commercial are filtered out. The required credit is printed under each photo, listed on the Telegram draft, and added to the Facebook caption automatically. Don't remove it: the credit is the licence condition.
-- **News**: stories are found through Google News, rewritten in the page's own words, and the outlet is credited on screen ("SOURCE: ...") and in the caption. Photos from the news articles themselves are **not** used. They belong to agencies such as Getty, and using them gets Pages claimed and demonetized.
+- **News**: stories come from feeds that carry real article text (Mundo Deportivo, Barca Blaugranes, Barca Universal, BBC Sport, the Guardian, plus Barça stories from Football España and Get Football News Spain; see `RICH_FEEDS`). They are rewritten in the page's own words, fact-checked against the article text, and the outlet is credited on screen and in the caption.
+- **Photo posts**: each morning up to `DAILY_PHOTOS` (default 2) extra news stories become photo posts: a headline card built on a free-licence photo, with the photographer credited on the card and in the post text, and the outlet credited as the source.
+- Photos from the news articles themselves are **not** used, even with credit. They belong to agencies such as Getty; a credit is not a licence, and reposting them gets Pages claimed and demonetized.
 - Check the photo on each draft before approving. Commons search occasionally returns the wrong person or an old photo; reject the draft if so. If no free photo exists for a line, that line falls back to the plain club-colour background.
 
 ## Content rules that protect monetization
