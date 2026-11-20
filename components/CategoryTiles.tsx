@@ -22,11 +22,32 @@ const tiles = [
     emoji: "🔴",
     gradient: "from-live to-barca-red",
   },
+  {
+    href: "/blog",
+    title: "Blog",
+    sub: "Analysis · opinion",
+    emoji: "✍️",
+    gradient: "from-barca-gold to-barca-red",
+  },
+  {
+    href: "/predictions",
+    title: "Predictions",
+    sub: "Score & climb the table",
+    emoji: "🎯",
+    gradient: "from-fifa-purple to-barca-gold",
+  },
+  {
+    href: "/teams",
+    title: "Your Teams",
+    sub: "Follow & track fixtures",
+    emoji: "⭐",
+    gradient: "from-barca-blue to-fifa-purple",
+  },
 ] as const;
 
 export function CategoryTiles() {
   return (
-    <div className="px-4 mt-4 grid grid-cols-3 gap-2">
+    <div className="px-4 mt-4 grid grid-cols-3 lg:grid-cols-6 gap-2">
       {tiles.map((t) => (
         <Link
           key={t.href}

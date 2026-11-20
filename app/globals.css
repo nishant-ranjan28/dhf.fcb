@@ -115,10 +115,10 @@
 .prose-blog th { background: #15151B; color: #fff; }
 .prose-blog hr { border-color: #23232B; }
 
-/* Desktop blog shell. Only /blog and /blog/[slug] opt in via the
- * [data-wide-layout] marker from app/blog/layout.tsx, so every other route
- * keeps the original 640px mobile-first column. Below lg nothing here
- * applies, which keeps the phone layout byte-for-byte unchanged. */
+/* Desktop wide shell. /blog and /blog/[slug] opt in via app/blog/layout.tsx;
+ * the home page opts in via the marker on its root div in app/page.tsx. Every
+ * other route keeps the original 640px mobile-first column. Below lg nothing
+ * here applies, which keeps the phone layout single-column. */
 @media (min-width: 1024px) {
   main:has(> [data-wide-layout]) {
     max-width: 1120px;

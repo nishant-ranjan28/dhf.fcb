@@ -24,7 +24,7 @@ function getVoterId(): string {
   return id;
 }
 
-export function PollCard({ poll }: { poll: Poll }) {
+export function PollCard({ poll, flush = false }: { poll: Poll; flush?: boolean }) {
   const [tally, setTally] = useState<Tally | null>(null);
   const [voted, setVoted] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -63,7 +63,11 @@ export function PollCard({ poll }: { poll: Poll }) {
   const showResults = Boolean(voted) && tally !== null;
 
   return (
-    <section className="mx-4 mt-3 rounded-2xl border border-ink-line bg-ink-soft p-4">
+    <section
+      className={`mx-4 mt-3 rounded-2xl border border-ink-line bg-ink-soft p-4 ${
+        flush ? "lg:mx-0 lg:mt-0" : ""
+      }`}
+    >
       <div className="flex items-center gap-2 mb-3">
         <span className="text-base" aria-hidden>📊</span>
         <h2 className="text-sm font-bold text-white">{poll.question}</h2>

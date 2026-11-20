@@ -27,7 +27,7 @@ function Cell({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function CountdownTimer({ match }: { match: Match }) {
+export function CountdownTimer({ match, flush = false }: { match: Match; flush?: boolean }) {
   // Render nothing time-sensitive on the server pass — compute after mount to
   // avoid a hydration mismatch on the ticking values.
   const [parts, setParts] = useState<ReturnType<typeof diffParts> | null>(null);
@@ -41,7 +41,10 @@ export function CountdownTimer({ match }: { match: Match }) {
   }, [match.kickoff]);
 
   return (
-    <Link href={`/match/${match.slug}`} className="block mx-4 mt-3">
+    <Link
+      href={`/match/${match.slug}`}
+      className={`block mx-4 mt-3 ${flush ? "lg:mx-0 lg:mt-0" : ""}`}
+    >
       <div className="relative overflow-hidden rounded-2xl border border-fifa-purple/40 bg-gradient-to-br from-fifa-purple/30 via-ink-soft to-ink p-4 active:scale-[0.99] transition">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-fifa-purple">
