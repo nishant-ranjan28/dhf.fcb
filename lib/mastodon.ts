@@ -40,7 +40,7 @@ export async function postToMastodon(opts: {
   if (!base || !token) return { ok: false, error: "Mastodon not configured" };
   try {
     const status = formatMastodonStatus(opts.title, opts.url);
-    const res = await fetch(`${base}/api/v2/statuses`, {
+    const res = await fetch(`${base}/api/v1/statuses`, {
       method: "POST",
       headers: {
         "content-type": "application/json",

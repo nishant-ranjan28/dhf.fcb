@@ -53,7 +53,7 @@ describe("postToMastodon", () => {
     expect(r).toEqual({ ok: true, id: "12345" });
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://mastodon.social/api/v2/statuses");
+    expect(url).toBe("https://mastodon.social/api/v1/statuses");
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer token123");
     expect(JSON.parse(String(init.body))).toEqual({
       status: "Yamal signs\n\nhttps://s.com/blog/yamal",
