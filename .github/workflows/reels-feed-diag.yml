@@ -1,0 +1,17 @@
+name: Reels - feed diagnostics (temporary)
+on:
+  push:
+    branches: [reels-news-tuning]
+    paths: [reels/tools/feed_diag.py]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q feedparser requests && python reels/tools/feed_diag.py
