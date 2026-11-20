@@ -1,5 +1,6 @@
 """Turn news + match data into short original Reel scripts using Claude."""
 import json
+import time
 from datetime import datetime, timezone
 
 import requests
@@ -51,6 +52,8 @@ SCHEMA = {
     "required": ["videos"],
 }
 
+GROQ_PAUSE = 20  # seconds between Groq batches
+
 SYSTEM = f"""You write scripts for short vertical videos (Facebook Reels, 30-45 seconds) for the
 fan page "{config.PAGE_NAME}" ({config.PAGE_HANDLE}), an unofficial {config.TEAM_NAME} fan page.
 Language: {config.LANGUAGE}. Voice: an excited but credible fan-journalist talking to fellow fans.
@@ -74,28 +77,65 @@ Hard rules:
 """
 
 
-def write_scripts(news, matches, count, recent_titles=()):
+def _prompt(news, matches, count, avoid):
     today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
     material = {
         "today_utc": today,
         "news": news if config.ANTHROPIC_API_KEY else [  # keep the prompt small for Groq's free tier
-            {**n, "summary": n["summary"][:160], "link": ""} for n in news[:14]],
+            {**n, "summary": (n.get("summary") or "")[:160], "link": ""} for n in news[:14]],
         "matches": matches,
-        "recently_posted_titles_do_not_repeat": list(recent_titles)[-40:],
+        "recently_posted_titles_do_not_repeat": list(avoid)[-40:],
     }
-    prompt = (
+    return (
         f"Write {count} different videos for today. Mix formats sensibly: lead with the biggest real "
         "news or match story; use 'match' when there is a fixture in the next 48h or a result in the "
-        "last 24h; include at least one 'fact' or 'stats' video. Skip weak or duplicate stories.\n\n"
+        "last 24h; include at least one 'fact' or 'stats' video across the day. Skip weak or duplicate "
+        "stories.\n\n"
         f"<material>\n{json.dumps(material, ensure_ascii=False, indent=1)}\n</material>"
     )
+
+
+def write_scripts(news, matches, count, recent_titles=()):
     if config.ANTHROPIC_API_KEY:
-        videos = _ask_claude(prompt)
-    elif config.GROQ_API_KEY or not site.enabled():
-        videos = _ask_groq(prompt)
-    else:
-        videos = _ask_site(prompt)
-    return [v for v in (_tidy(v) for v in videos) if v][:count]
+        videos = _ask_claude(_prompt(news, matches, count, recent_titles))
+        return [v for v in (_tidy(v) for v in videos) if v][:count]
+    # Groq's free tier has a small output budget, so ask for two videos at a time.
+    ask = _ask_groq if (config.GROQ_API_KEY or not site.enabled()) else _ask_site
+    out, avoid, errors = [], list(recent_titles), 0
+    while len(out) < count and errors < 2:
+        if out or errors:
+            time.sleep(GROQ_PAUSE)  # stay under the tokens-per-minute limit
+        need = min(2, count - len(out))
+        hint = "" if out else " Start with the biggest story."
+        if out and not any(v["format"] in ("fact", "stats") for v in out):
+            hint = " At least one of these must be a 'fact' or 'stats' video."
+        try:
+            batch = [v for v in (_tidy(v) for v in ask(_prompt(news, matches, need, avoid) + hint)) if v]
+        except Exception as e:  # noqa: BLE001
+            print(f"[writer] batch failed: {e}")
+            batch = []
+        if not batch:
+            errors += 1
+            continue
+        out += batch[:need]
+        avoid += [v["title"] for v in batch]
+    if not out:
+        raise RuntimeError("No scripts could be written")
+    return out[:count]
+
+
+def _extract_videos(text):
+    """Pull the JSON object out of a model reply that may wrap it in prose or a code fence."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError("no JSON object in reply")
+    data = json.loads(text[start:end + 1])
+    videos = data.get("videos") if isinstance(data, dict) else None
+    if isinstance(data, dict) and videos is None and data.get("segments"):
+        videos = [data]  # a single video returned bare
+    if not videos:
+        raise ValueError("no videos in reply")
+    return videos
 
 
 def _ask_claude(prompt):
@@ -116,46 +156,27 @@ def _ask_claude(prompt):
 
 
 def _json_system():
-    return (SYSTEM + "\nReply with ONE JSON object and nothing else, matching this JSON Schema:\n"
-            + json.dumps(SCHEMA))
+    return (SYSTEM + "\nReply with ONE JSON object and nothing else (no markdown, no commentary), matching this "
+            "JSON Schema:\n" + json.dumps(SCHEMA))
 
 
 def _ask_site(prompt):
     """Have the website call Groq with the key stored in Vercel."""
-    last = None
-    for _ in range(2):
-        try:
-            videos = json.loads(site.call("scripts", system=_json_system(), prompt=prompt)["content"]).get("videos")
-            if videos:
-                return videos
-            last = "no videos in reply"
-        except Exception as e:  # noqa: BLE001
-            last = str(e)
-    raise RuntimeError(f"Site returned no scripts ({last})")
+    return _extract_videos(site.call("scripts", system=_json_system(), prompt=prompt)["content"])
 
 
 def _ask_groq(prompt):
-    """Same job on Groq's OpenAI-compatible API (the key the site's autopost already uses)."""
+    """Same job straight against Groq's OpenAI-compatible API."""
     if not config.GROQ_API_KEY:
-        raise RuntimeError("Set ANTHROPIC_API_KEY or GROQ_API_KEY")
-    system = _json_system()
-    last = None
-    for _ in range(2):
-        r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=180,
-                          headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
-                          json={"model": config.GROQ_MODEL, "temperature": 0.7,
-                                "response_format": {"type": "json_object"},
-                                "messages": [{"role": "system", "content": system},
-                                             {"role": "user", "content": prompt}]})
-        try:
-            r.raise_for_status()
-            videos = json.loads(r.json()["choices"][0]["message"]["content"]).get("videos", [])
-            if videos:
-                return videos
-            last = "no videos in reply"
-        except Exception as e:  # noqa: BLE001
-            last = f"{e}: {r.text[:300]}"
-    raise RuntimeError(f"Groq returned no scripts ({last})")
+        raise RuntimeError("Set ANTHROPIC_API_KEY, GROQ_API_KEY or CRON_TOKEN")
+    r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=180,
+                      headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
+                      json={"model": config.GROQ_MODEL, "temperature": 0.7, "max_tokens": 4096,
+                            "messages": [{"role": "system", "content": _json_system()},
+                                         {"role": "user", "content": prompt}]})
+    if r.status_code >= 400:
+        raise RuntimeError(f"Groq HTTP {r.status_code}: {r.text[:300]}")
+    return _extract_videos(r.json()["choices"][0]["message"]["content"])
 
 
 def _tidy(v):

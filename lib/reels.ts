@@ -29,7 +29,7 @@ export function allowedVideoPrefix(): string {
   );
 }
 
-/** Ask Groq for a JSON object. Returns the raw JSON text. */
+/** Ask Groq for a JSON object. Returns the model's text; the caller extracts the JSON. */
 export async function generateReelScripts(opts: {
   system: string;
   prompt: string;
@@ -43,7 +43,11 @@ export async function generateReelScripts(opts: {
       body: JSON.stringify({
         model: env.groqModel,
         temperature: 0.7,
-        response_format: { type: "json_object" },
+        // Same lesson as lib/autopost/generate.ts: gpt-oss spends reasoning
+        // tokens first, and Groq's strict JSON mode rejects the reply with
+        // json_validate_failed. Ask for JSON in the prompt and let the caller
+        // extract the object from the text.
+        max_tokens: 4096,
         messages: [
           { role: "system", content: opts.system },
           { role: "user", content: opts.prompt },
@@ -56,7 +60,6 @@ export async function generateReelScripts(opts: {
     const json = JSON.parse(text) as { choices?: { message?: { content?: string } }[] };
     const content = json.choices?.[0]?.message?.content;
     if (!content) return fail("Groq returned no content");
-    JSON.parse(content); // must be valid JSON; throws into the catch otherwise
     return { ok: true, content };
   } catch (err) {
     return fail(message(err));
