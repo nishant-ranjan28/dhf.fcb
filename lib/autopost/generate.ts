@@ -114,9 +114,12 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
         model: resolveGroqModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        // gpt-oss burns reasoning tokens before emitting the JSON. 2048 left
-        // nothing for the answer and Groq rejected it with json_validate_failed.
-        max_tokens: 4096,
+        // gpt-oss reasons before emitting the JSON. With the default effort it
+        // consumed all 4096 tokens on reasoning and returned an empty answer.
+        // Low effort keeps reasoning tiny; the larger budget is headroom for
+        // the 300-420 word body.
+        max_tokens: 8192,
+        reasoning_effort: "low",
         // No response_format: Groq's strict JSON validator rejects any preamble
         // or reasoning leak. The prompt asks for JSON and parseJsonDraft below
         // extracts the object from whatever the model wraps around it.
@@ -169,7 +172,10 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
         model: resolveOpenRouterModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        // Same reasoning fix as Groq: OpenRouter's gpt-oss used ~2700 of 4096
+        // tokens on reasoning and truncated the JSON mid-string.
+        reasoning: { effort: "low" },
       }),
       signal: AbortSignal.timeout(30_000),
     });

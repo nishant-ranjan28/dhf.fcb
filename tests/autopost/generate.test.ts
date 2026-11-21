@@ -67,7 +67,8 @@ describe("generateDraft — Groq only", () => {
     expect(headers.authorization).toBe("Bearer test-groq");
     const body = JSON.parse(String(init.body));
     expect(body.model).toBe("openai/gpt-oss-20b");
-    expect(body.max_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(8192);
+    expect(body.reasoning_effort).toBe("low");
     // No response_format: Groq's strict JSON validator rejects preamble text.
     expect(body.response_format).toBeUndefined();
   });
