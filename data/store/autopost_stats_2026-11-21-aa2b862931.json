@@ -1,1 +1,1 @@
-{"value":{"t":"string","v":{"date":"2026-11-21","generated":10,"published":6,"errors":0,"by_gemini":0,"by_groq":6,"by_openrouter":0,"skipped_by_reason":{"all_providers_failed":2,"gate_word_count":1,"min_interval":1}}},"expiresAt":1797867032363}
+{"value":{"t":"string","v":{"date":"2026-11-21","generated":10,"published":7,"errors":0,"by_gemini":0,"by_groq":7,"by_openrouter":0,"skipped_by_reason":{"all_providers_failed":2,"gate_word_count":1,"min_interval":1}}},"expiresAt":1797867038013}
