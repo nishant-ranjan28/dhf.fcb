@@ -84,14 +84,14 @@ export function makeRedisShim(store: GithubDocStore) {
       return next;
     },
 
-    async expire(key: string, seconds: number): Promise<boolean> {
+    async expire(key: string, seconds: number): Promise<0 | 1> {
       const doc = await store.get<RedisDoc>(key);
-      if (!doc) return false;
+      if (!doc) return 0;
       await store.set<RedisDoc>(key, {
         ...doc,
         expiresAt: Date.now() + seconds * 1000,
       });
-      return true;
+      return 1;
     },
 
     async zadd(
@@ -228,8 +228,8 @@ export function makeRedisShim(store: GithubDocStore) {
       return (await read(store, key, "set"))?.v ?? [];
     },
 
-    async sismember(key: string, member: string): Promise<boolean> {
-      return Boolean((await read(store, key, "set"))?.v.includes(member));
+    async sismember(key: string, member: string): Promise<0 | 1> {
+      return (await read(store, key, "set"))?.v.includes(member) ? 1 : 0;
     },
 
     async scard(key: string): Promise<number> {

@@ -60,7 +60,7 @@ describe("GitHub-backed Redis shim", () => {
   it("handles sets and hashes", async () => {
     const shim = makeRedisShim(fakeStore());
     expect(await shim.sadd("settled", "m1", "m2")).toBe(2);
-    expect(await shim.sismember("settled", "m1")).toBe(true);
+    expect(await shim.sismember("settled", "m1")).toBe(1);
     expect(await shim.smembers("settled")).toEqual(["m1", "m2"]);
     expect(await shim.scard("settled")).toBe(2);
     expect(await shim.srem("settled", "m1")).toBe(1);
