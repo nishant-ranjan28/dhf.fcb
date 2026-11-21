@@ -79,7 +79,7 @@ export async function runAutopost(): Promise<PipelineResult> {
         ? { slug: result.slug, provider: result.provider, announces: result.announces }
         : {}),
       ...(result.status === "skipped"
-        ? { reason: result.reason, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) }
+        ? { reason: result.reason, ...(result.detail ? { detail: result.detail } : {}), ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) }
         : {}),
       ...(result.status === "error" ? { error: result.error } : {}),
     });

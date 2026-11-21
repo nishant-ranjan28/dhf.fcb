@@ -97,14 +97,14 @@ describe("generateDraft — Groq only", () => {
     process.env.GROQ_API_KEY = "test-groq";
     vi.stubGlobal("fetch", mockGroq({ error: "rate_limit" }, 429));
     const r = await generateDraft(ITEM);
-    expect(r).toEqual({ ok: false, reason: "quota" });
+    expect(r).toMatchObject({ ok: false, reason: "quota" });
   });
 
   it("returns all_providers_failed when no key is set", async () => {
     const fetchMock = vi.fn(async () => new Response("err", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
     const r = await generateDraft(ITEM);
-    expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
+    expect(r).toMatchObject({ ok: false, reason: "all_providers_failed" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -112,7 +112,7 @@ describe("generateDraft — Groq only", () => {
     process.env.GROQ_API_KEY = "test-groq";
     vi.stubGlobal("fetch", vi.fn(async () => new Response("err", { status: 500 })));
     const r = await generateDraft(ITEM);
-    expect(r).toEqual({ ok: false, reason: "all_providers_failed" });
+    expect(r).toMatchObject({ ok: false, reason: "all_providers_failed" });
   });
 
   it("falls back to OpenRouter when Groq fails", async () => {

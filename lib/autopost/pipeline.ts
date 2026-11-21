@@ -98,7 +98,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
   const gen = await deps.generate(selected);
   if (!gen.ok) {
     await state.recordSkip(gen.reason);
-    return { status: "skipped", reason: gen.reason };
+    return { status: "skipped", reason: gen.reason, detail: gen.detail };
   }
   let draft: DraftPost = gen.draft;
 

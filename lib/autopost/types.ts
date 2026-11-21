@@ -38,7 +38,7 @@ export type SkipReason =
 
 export type PipelineResult =
   | { status: "published"; slug: string; provider: "groq" | "openrouter"; announces: AnnounceResults }
-  | { status: "skipped"; reason: SkipReason; diagnostics?: GateDiagnostics }
+  | { status: "skipped"; reason: SkipReason; diagnostics?: GateDiagnostics; detail?: string }
   | { status: "error"; error: string };
 
 export type AnnounceChannel =

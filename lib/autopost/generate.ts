@@ -19,7 +19,7 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export type GenerateResult =
   | { ok: true; draft: DraftPost }
-  | { ok: false; reason: "quota" | "all_providers_failed" };
+  | { ok: false; reason: "quota" | "all_providers_failed"; detail?: string };
 
 export async function generateDraft(
   item: SelectedNewsItem,
@@ -27,13 +27,17 @@ export async function generateDraft(
 ): Promise<GenerateResult> {
   const prompt = buildPrompt(item, opts?.missingEntities);
   let sawQuota = false;
+  const details: string[] = [];
 
   const groqKey = process.env.GROQ_API_KEY?.trim();
   if (groqKey) {
     const r = await tryGroq(prompt, groqKey);
     if (r.ok) return { ok: true, draft: { ...r.draft, provider: "groq" } };
     if (r.quota) sawQuota = true;
+    details.push(`groq: ${r.detail ?? "failed"}`);
     // Fall through to OpenRouter on quota or transient.
+  } else {
+    details.push("groq: no key");
   }
 
   const orKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -41,9 +45,16 @@ export async function generateDraft(
     const r = await tryOpenRouter(prompt, orKey);
     if (r.ok) return { ok: true, draft: { ...r.draft, provider: "openrouter" } };
     if (r.quota) sawQuota = true;
+    details.push(`openrouter: ${r.detail ?? "failed"}`);
+  } else {
+    details.push("openrouter: no key");
   }
 
-  return { ok: false, reason: sawQuota ? "quota" : "all_providers_failed" };
+  return {
+    ok: false,
+    reason: sawQuota ? "quota" : "all_providers_failed",
+    detail: details.join(" | "),
+  };
 }
 
 function buildPrompt(item: SelectedNewsItem, missingEntities?: string[]): string {
@@ -91,7 +102,7 @@ interface ParsedDraft {
   tags: string[];
 }
 
-async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true }> {
+async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true; detail?: string }> {
   try {
     const res = await fetch(GROQ_URL, {
       method: "POST",
@@ -113,8 +124,13 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {
-      console.warn("[autopost] groq http", res.status, (await res.text()).slice(0, 400));
-      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
+      const body = (await res.text()).slice(0, 400);
+      console.warn("[autopost] groq http", res.status, body);
+      return {
+        ok: false,
+        ...(res.status === 429 ? { quota: true as const } : {}),
+        detail: `http ${res.status}: ${body.replace(/\s+/g, " ").slice(0, 180)}`,
+      };
     }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
@@ -122,21 +138,22 @@ async function tryGroq(prompt: string, key: string): Promise<{ ok: true; draft: 
     const text = data.choices?.[0]?.message?.content;
     if (!text) {
       console.warn("[autopost] groq returned no content");
-      return { ok: false };
+      return { ok: false, detail: "no content" };
     }
     const draft = parseJsonDraft(text);
     if (!draft) {
       console.warn("[autopost] groq parse failed:", text.slice(0, 200));
-      return { ok: false };
+      return { ok: false, detail: `parse failed: ${text.replace(/\s+/g, " ").slice(0, 120)}` };
     }
     return { ok: true, draft };
   } catch (err) {
-    console.warn("[autopost] groq exception:", err instanceof Error ? err.message : String(err));
-    return { ok: false };
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[autopost] groq exception:", message);
+    return { ok: false, detail: `exception: ${message}` };
   }
 }
 
-async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true }> {
+async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; draft: ParsedDraft } | { ok: false; quota?: true; detail?: string }> {
   try {
     const headers: Record<string, string> = {
       "content-type": "application/json",
@@ -157,8 +174,13 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {
-      console.warn("[autopost] openrouter http", res.status, (await res.text()).slice(0, 400));
-      return res.status === 429 ? { ok: false, quota: true } : { ok: false };
+      const body = (await res.text()).slice(0, 400);
+      console.warn("[autopost] openrouter http", res.status, body);
+      return {
+        ok: false,
+        ...(res.status === 429 ? { quota: true as const } : {}),
+        detail: `http ${res.status}: ${body.replace(/\s+/g, " ").slice(0, 180)}`,
+      };
     }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
@@ -166,17 +188,18 @@ async function tryOpenRouter(prompt: string, key: string): Promise<{ ok: true; d
     const text = data.choices?.[0]?.message?.content;
     if (!text) {
       console.warn("[autopost] openrouter returned no content");
-      return { ok: false };
+      return { ok: false, detail: "no content" };
     }
     const draft = parseJsonDraft(text);
     if (!draft) {
       console.warn("[autopost] openrouter parse failed:", text.slice(0, 200));
-      return { ok: false };
+      return { ok: false, detail: `parse failed: ${text.replace(/\s+/g, " ").slice(0, 120)}` };
     }
     return { ok: true, draft };
   } catch (err) {
-    console.warn("[autopost] openrouter exception:", err instanceof Error ? err.message : String(err));
-    return { ok: false };
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[autopost] openrouter exception:", message);
+    return { ok: false, detail: `exception: ${message}` };
   }
 }
 

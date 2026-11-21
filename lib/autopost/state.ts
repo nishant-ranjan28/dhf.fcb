@@ -19,6 +19,7 @@ export interface LastRunRecord {
   durationMs: number;
   status: "published" | "skipped" | "error";
   reason?: string;
+  detail?: string;
   diagnostics?: GateDiagnostics;
   slug?: string;
   provider?: "groq" | "openrouter";
