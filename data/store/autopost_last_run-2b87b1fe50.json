@@ -1,1 +1,1 @@
-{"value":{"t":"string","v":{"at":"2026-11-21T09:15:50.433Z","durationMs":37141,"status":"skipped","reason":"all_providers_failed","detail":"groq: no content | openrouter: parse failed: {\"title\":\"Kavuma‑McQueen Shakes Championship, Chelsea’s Hidden Gem\",\"body\":\"## Quick take\\nRyan Kavuma‑McQueen’s boom at"}},"expiresAt":1795857387574}
+{"value":{"t":"string","v":{"at":"2026-11-21T09:20:30.383Z","durationMs":6206,"status":"skipped","reason":"gate_word_count","diagnostics":{"wordCount":212}}},"expiresAt":1795857636589}
