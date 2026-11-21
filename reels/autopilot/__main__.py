@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import config, facebook, ghissue, media, render, site, sources, store, telegram, voice, writer
 
+AUTO_APPROVE_MAX_AGE_H = 20
 PRIORITY = {"match": 0, "news": 1, "photo": 2, "stats": 3, "fact": 4}
 
 
@@ -216,8 +217,10 @@ def _housekeeping(state):
     t = store.now()
     for it in state["items"]:
         age = t - datetime.fromisoformat(it["created"])
+        # Auto-approve only the current batch: a draft older than a day was left alone on purpose
+        # (or predates the setting), so it stays pending and expires instead of posting unreviewed.
         if it["status"] == "pending" and config.AUTO_APPROVE_AFTER_HOURS > 0 and \
-                age > timedelta(hours=config.AUTO_APPROVE_AFTER_HOURS):
+                timedelta(hours=config.AUTO_APPROVE_AFTER_HOURS) < age < timedelta(hours=AUTO_APPROVE_MAX_AGE_H):
             it["status"] = "approved"
         # news goes stale: drop anything not posted within 2 days (fact/stats keep for 5)
         limit = 5 if it["script"]["format"] in ("fact", "stats") else 2
