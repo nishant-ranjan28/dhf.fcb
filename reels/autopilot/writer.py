@@ -1,5 +1,6 @@
 """Turn news + match data into short original Reel scripts using Claude."""
 import json
+import re
 import time
 from datetime import datetime, timezone
 
@@ -23,6 +24,7 @@ SCHEMA = {
                 "type": "object",
                 "properties": {
                     "format": {"type": "string", "enum": list(FORMATS)},
+                    "story": {"type": "integer", "description": "The number of the [n] item in the material this video is about"},
                     "title": {"type": "string", "description": "On-screen headline, max 45 characters, punchy, ALL information must be accurate"},
                     "segments": {
                         "type": "array",
@@ -71,6 +73,10 @@ ACCURACY RULES. These matter more than anything else:
 - Rumours must be framed as rumours ("reports in Spain claim..."), naming the outlet.
 - stat_value must be a number or score that appears in the material, exactly.
 - Write in your own words; never copy a sentence from the material.
+- Every video is about FC Barcelona football: the men's or women's team, its players, coaches, matches,
+  transfers or the club's football history. Skip material about other sports (rugby, basketball,
+  handball), concerts or other events at the stadium, and other clubs' news that does not involve Barça.
+- Each video in a reply must use a different [n] item and set "story" to that number.
 
 STYLE:
 - Line 1 is a hook that makes people stop scrolling. The final line is a varied call to follow the
@@ -166,7 +172,8 @@ def _material_text(kind, material):
                          + ". Players: " + ", ".join(f"{p['name']} ({p['position'] or 'n/a'})"
                                                      for p in squad["players"]))
         return "\n\n".join(parts)
-    return "\n\n".join(f"[From the Wikipedia article '{p['title']}']\n{p['text']}" for p in material["passages"])
+    return "\n\n".join(f"[{i}] From the Wikipedia article '{p['title']}'\n{p['text']}"
+                       for i, p in enumerate(material["passages"], 1))
 
 
 def _write(kind, material, count, avoid, photo=False):
@@ -189,6 +196,7 @@ def _write(kind, material, count, avoid, photo=False):
               f"<material>\n{_material_text(kind, material)}\n</material>")
     videos = [v for v in (_tidy(v) for v in _extract_videos(_llm(_json_system(), prompt))) if v]
     for v in videos:
+        v["_story_key"] = f"{kind}:{v.pop('story', None)}" if isinstance(v.get("story"), int) else None
         if kind != "news":
             v.pop("source_name", None)
             if v["format"] not in ("fact", "stats"):
@@ -196,6 +204,34 @@ def _write(kind, material, count, avoid, photo=False):
         elif v["format"] not in ("news", "match"):
             v["format"] = "news"
     return videos[:count]
+
+
+OFF_TOPIC = re.compile(r"\brugby\b|\brugbi\b|top 14|super league|catalans dragons|\bconcerts?\b|"
+                       r"\bbasketball\b|\bhandball\b|\bfutsal\b|euroleague|\bnba\b|\btennis\b", re.I)
+COMMON_WORDS = {"barca", "barça", "barcelona", "fc", "camp", "nou", "spotify", "la", "liga", "laliga", "champions",
+                "league", "real", "madrid", "the", "a", "an", "and", "of", "in", "to", "for", "with", "on", "at",
+                "is", "as", "new", "after", "how", "why", "what", "his", "their", "s"}
+
+
+def _key_names(video, squad):
+    """Squad surnames (or other capitalised names) in the headline: what the video is about."""
+    title = video["title"]
+    names = set()
+    for p in (squad or {}).get("players", []) + [{"name": (squad or {}).get("coach", "")}]:
+        last = (p.get("name") or "").split()[-1:] or []
+        if last and len(last[0]) > 2 and re.search(rf"\b{re.escape(last[0])}\b", title, re.I):
+            names.add(last[0].lower())
+    if not names:
+        names = {w.lower().strip("'’s") for w in re.findall(r"\b[A-Z][\w’'\-]+", title)} - COMMON_WORDS
+    return names
+
+
+def _same_story(video, taken, squad):
+    """True if this draft repeats a story or subject already drafted in this run."""
+    if video.get("_story_key") in taken["stories"]:
+        return True
+    names = _key_names(video, squad)
+    return bool(names) and any(names & other for other in taken["names"])
 
 
 QUOTE_MARKS = ('"', "“", "”", "«", "»")
@@ -239,6 +275,14 @@ def _verify(video, kind, material):
     return True
 
 
+def _take(video, taken, squad):
+    if video.get("_story_key"):
+        taken["stories"].add(video["_story_key"])
+    names = _key_names(video, squad)
+    if names:
+        taken["names"].append(names)
+
+
 def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
     """Write and fact-check scripts. Returns fewer than `count` (or none) rather than unverified ones."""
     n_news = min((count + 1) // 2, len(news))
@@ -246,6 +290,7 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
     plan = [("news", {"news": news[:10], "matches": matches, "squad": squad or {}}, n_news),
             ("fact", {"passages": passages}, n_fact)]
     out, avoid, seen_numbers = [], list(recent_titles), set()
+    taken = {"stories": set(), "names": []}
     for kind, material, want in plan:
         got = 0
         for _attempt in range(2):  # one retry if the checker rejects drafts
@@ -258,6 +303,12 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
                 continue
             for v in drafts:
                 avoid.append(v["title"])
+                if OFF_TOPIC.search(v["title"] + " " + " ".join(s["say"] for s in v["segments"])):
+                    print(f"[writer] skipped '{v['title']}': not about Barça football")
+                    continue
+                if _same_story(v, taken, squad):
+                    print(f"[writer] skipped '{v['title']}': same story as an earlier draft")
+                    continue
                 numbers = {s.get("stat_value") for s in v["segments"] if s.get("stat_value")}
                 if numbers & seen_numbers:
                     print(f"[writer] skipped '{v['title']}': same headline number as an earlier draft")
@@ -266,6 +317,7 @@ def write_scripts(news, matches, passages, count, recent_titles=(), squad=None):
                     out.append(v)
                     got += 1
                     seen_numbers |= numbers
+                    _take(v, taken, squad)
     return out
 
 
@@ -291,7 +343,7 @@ def _tidy(v):
     return v
 
 
-def write_photo_posts(news, count, recent_titles=(), squad=None):
+def write_photo_posts(news, count, recent_titles=(), squad=None, videos=()):
     """Short, fact-checked news posts to go out with a headline card image."""
     if count <= 0 or not news:
         return []
@@ -303,10 +355,21 @@ def write_photo_posts(news, count, recent_titles=(), squad=None):
     except Exception as e:  # noqa: BLE001
         print(f"[writer] photo batch failed: {e}")
         return []
+    taken = {"stories": set(), "names": []}
+    for v in videos:
+        _take(dict(v, _story_key=None), taken, squad)
     for v in drafts:
         v["format"] = "news"
+        v["_story_key"] = None  # numbered differently from the video batch
+        if OFF_TOPIC.search(v["title"] + " " + " ".join(s["say"] for s in v["segments"])):
+            print(f"[writer] skipped photo '{v['title']}': not about Barça football")
+            continue
+        if _same_story(v, taken, squad):
+            print(f"[writer] skipped photo '{v['title']}': same story as an earlier draft")
+            continue
         if _verify_photo(v, material):
             out.append(v)
+            _take(v, taken, squad)
     return out[:count]
 
 

@@ -8,7 +8,7 @@ import argparse
 import json
 import secrets
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import config, facebook, ghissue, media, render, site, sources, store, telegram, voice, writer
@@ -57,8 +57,22 @@ def _caption(item):
     return desc
 
 
+def _ist_now():
+    return datetime.now(timezone(timedelta(hours=5, minutes=30)))
+
+
 def cmd_generate(args):
     state = store.load()
+    if not args.force:
+        today = _ist_now().date()
+        made_today = any(datetime.fromisoformat(i["created"]).astimezone(_ist_now().tzinfo).date() == today
+                         for i in state["items"])
+        if made_today:
+            print("[generate] drafts already made today; nothing to do")
+            return
+        if _ist_now().hour < config.GENERATE_AFTER_IST:
+            print("[generate] too early in the day; nothing to do")
+            return
     store.prune(state)
     news = sources.fetch_rich_news()
     matches = sources.fetch_matches()
@@ -71,7 +85,9 @@ def cmd_generate(args):
     print(f"[generate] {len(scripts)} of {count} scripts passed the fact check")
     # photo posts come from the stories the videos did not get to
     photo_scripts = writer.write_photo_posts(news[10:], config.DAILY_PHOTOS,
-                                             recent + [s["title"] for s in scripts], squad)
+                                             recent + [s["title"] for s in scripts], squad, scripts)
+    for s in scripts + photo_scripts:
+        s.pop("_story_key", None)
     print(f"[generate] {len(photo_scripts)} of {config.DAILY_PHOTOS} photo posts passed the fact check")
     tg, gi = telegram.enabled(), ghissue.enabled()
     review = tg or gi
@@ -208,13 +224,24 @@ def _housekeeping(state):
             it["status"] = "expired"
 
 
-def _post_next(state):
+def _post_next(state, force=False):
     since = store.now() - timedelta(hours=24)
     posted_24h = [i for i in state["items"] if i.get("posted_at")
                   and datetime.fromisoformat(i["posted_at"]) > since]
     if len(posted_24h) >= config.MAX_POSTS_PER_DAY:
         print("[publish] daily cap reached")
         return
+    if not force:
+        start, _, end = config.POST_HOURS_IST.partition("-")
+        hour = _ist_now().hour
+        if not (int(start) <= hour < int(end) or int(start) <= hour + 24 < int(end)):
+            print(f"[publish] outside posting hours ({config.POST_HOURS_IST} IST)")
+            return
+        last = max((datetime.fromisoformat(i["posted_at"]) for i in state["items"] if i.get("posted_at")),
+                   default=None)
+        if last and store.now() - last < timedelta(hours=config.MIN_GAP_HOURS):
+            print(f"[publish] last post was under {config.MIN_GAP_HOURS}h ago")
+            return
     ready = [i for i in state["items"] if i["status"] == "approved" and (i.get("video") or i.get("image"))]
     if not ready:
         print("[publish] nothing approved")
@@ -267,7 +294,7 @@ def cmd_publish(args):
     store.save(state)
     _housekeeping(state)
     if not args.no_post:
-        _post_next(state)
+        _post_next(state, force=args.force)
     if ghissue.enabled():
         ghissue.close_finished(state)
     store.prune(state)
@@ -286,9 +313,11 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("generate")
     g.add_argument("--count", type=int)
+    g.add_argument("--force", action="store_true", help="make drafts even if today's already exist")
     g.set_defaults(fn=cmd_generate)
     pb = sub.add_parser("publish")
     pb.add_argument("--no-post", action="store_true")
+    pb.add_argument("--force", action="store_true", help="ignore posting hours and the gap between posts")
     pb.set_defaults(fn=cmd_publish)
     sm = sub.add_parser("sample")
     sm.add_argument("file", nargs="?", default=str(config.ROOT / "samples" / "sample_fact.json"))

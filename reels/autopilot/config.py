@@ -29,6 +29,12 @@ FOOTBALL_DATA_TEAM_ID = int(env("FOOTBALL_DATA_TEAM_ID", "81"))  # 81 = FC Barce
 # --- Content -----------------------------------------------------------------
 DAILY_VIDEOS = int(env("DAILY_VIDEOS", "4"))
 MAX_POSTS_PER_DAY = int(env("MAX_POSTS_PER_DAY", "6"))
+# GitHub's scheduler delays and drops runs on quiet repos, so the publish job runs hourly and
+# these decide whether a given run posts.
+MIN_GAP_HOURS = float(env("MIN_GAP_HOURS", "2.5"))     # minimum time between two posts
+POST_HOURS_IST = env("POST_HOURS_IST", "9-25")          # posting window in IST; 25 = 1 am next day
+# The generate job is scheduled several times each morning; only the first successful run makes drafts.
+GENERATE_AFTER_IST = int(env("GENERATE_AFTER_IST", "6"))
 LANGUAGE = env("LANGUAGE", "English")
 CLAUDE_MODEL = env("CLAUDE_MODEL", "claude-sonnet-5-5")
 NEWS_QUERIES = [q.strip() for q in env(

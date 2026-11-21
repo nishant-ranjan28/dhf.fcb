@@ -161,6 +161,8 @@ def find(query, kind, workdir: Path, used: set):
     if not query or not config.USE_IMAGES:
         return None
     workdir.mkdir(parents=True, exist_ok=True)
+    if kind == "stock" and not re.search(r"football|soccer|stadium|fans|pitch|goal|ball", query, re.I):
+        query = f"{query} football"  # generic queries otherwise return anything (food, landscapes, ...)
     cands = (_pexels(query) or _openverse(query)) + _commons_search(query) if kind == "stock" else _entity(query)
     # prefer an image this video hasn't shown yet, but allow a repeat rather than nothing
     for cand in [c for c in cands if c["key"] not in used] + [c for c in cands if c["key"] in used]:
