@@ -7,6 +7,7 @@ import { runPipeline } from "@/lib/autopost/pipeline";
 import { generateDraft } from "@/lib/autopost/generate";
 import { announce } from "@/lib/autopost/announce";
 import { autopostState, type LastRunRecord } from "@/lib/autopost/state";
+import { githubDocStore } from "@/lib/storage/github";
 import type { PipelineResult } from "@/lib/autopost/types";
 
 export const maxDuration = 90;
@@ -24,14 +25,30 @@ export async function POST(req: Request) {
   // (published / skipped + reason) to make silent skips diagnosable without
   // needing an admin login or digging through Vercel logs.
   const lastRun = await autopostState().getLastRun().catch(() => null);
+  // TEMP DIAGNOSTIC: prove the cron invocation can write to the GitHub store.
+  let storage: string;
+  try {
+    await githubDocStore().set("diagnostic:cron-trigger", {
+      value: { at: new Date().toISOString() },
+    });
+    storage = "ok";
+  } catch (err) {
+    storage = `error: ${err instanceof Error ? err.message : String(err)}`;
+  }
   after(() => runAutopost());
-  return NextResponse.json({ status: "accepted", lastRun });
+  return NextResponse.json({ status: "accepted", lastRun, storage });
 }
 
 /** The actual pipeline. Kept separate from POST so unit tests can await it
  *  directly without a Next request scope (where `after()` is unavailable). */
 export async function runAutopost(): Promise<PipelineResult> {
   const started = Date.now();
+  // TEMP DIAGNOSTIC: prove after() actually executes on Vercel.
+  try {
+    await githubDocStore().set("diagnostic:autopost-started", {
+      value: { at: new Date(started).toISOString() },
+    });
+  } catch {}
   try {
     const result = await runPipeline({
       fetchNews: fetchAllNews,
