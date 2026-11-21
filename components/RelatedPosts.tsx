@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { BlogPost } from "@/lib/blog/types";
+import type { BlogSummary } from "@/lib/blog/types";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - +new Date(iso);
@@ -11,7 +11,7 @@ function timeAgo(iso: string): string {
   return `${d}d ago`;
 }
 
-export function RelatedPosts({ posts }: { posts: BlogPost[] }) {
+export function RelatedPosts({ posts }: { posts: BlogSummary[] }) {
   if (posts.length === 0) return null;
   return (
     <section className="mt-8">

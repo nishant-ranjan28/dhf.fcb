@@ -18,6 +18,13 @@ export interface BlogPost {
   author: string;
 }
 
+/**
+ * Lightweight post shape used by list pages, feeds, search and related-post
+ * blocks. Keeping `body` out of list reads is the difference between ~30 KB
+ * and ~350 KB per article view on the free Upstash bandwidth allowance.
+ */
+export type BlogSummary = Omit<BlogPost, "body">;
+
 export type SocialPlatform = "facebook" | "bluesky" | "mastodon" | "threads";
 
 export interface SocialPostLink {

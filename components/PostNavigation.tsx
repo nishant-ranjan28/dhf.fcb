@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { BlogPost } from "@/lib/blog/types";
+import type { BlogSummary } from "@/lib/blog/types";
 
 interface Props {
-  newer?: BlogPost;
-  older?: BlogPost;
+  newer?: BlogSummary;
+  older?: BlogSummary;
 }
 
 export function PostNavigation({ newer, older }: Props) {

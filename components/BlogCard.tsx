@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { BlogPost } from "@/lib/blog/types";
+import type { BlogSummary } from "@/lib/blog/types";
 import { formatViews } from "@/lib/blog/views";
 
 function timeAgo(iso: string): string {
@@ -13,7 +13,7 @@ function timeAgo(iso: string): string {
   return `${d}d ago`;
 }
 
-export function BlogCard({ post, views = 0 }: { post: BlogPost; views?: number }) {
+export function BlogCard({ post, views = 0 }: { post: BlogSummary; views?: number }) {
   return (
     <Link
       href={`/blog/${post.slug}`}

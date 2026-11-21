@@ -1,13 +1,13 @@
-import type { BlogPost } from "./types";
+import type { BlogSummary } from "./types";
 
 /** Pick `count` posts to suggest at the bottom of a blog post page.
  *  Strategy: any post sharing a tag with the current one ranks above
  *  date-only matches; ties broken by recency. Excludes the current post. */
 export function relatedPosts(
-  all: BlogPost[],
+  all: BlogSummary[],
   currentSlug: string,
   count = 3,
-): BlogPost[] {
+): BlogSummary[] {
   const current = all.find((p) => p.slug === currentSlug);
   if (!current) {
     return all
@@ -34,9 +34,9 @@ export function relatedPosts(
 /** Find the immediately-newer and immediately-older posts (chronological).
  *  Assumes `all` is sorted newest-first (the default from blogStore.list). */
 export function adjacentPosts(
-  all: BlogPost[],
+  all: BlogSummary[],
   currentSlug: string,
-): { newer?: BlogPost; older?: BlogPost } {
+): { newer?: BlogSummary; older?: BlogSummary } {
   const i = all.findIndex((p) => p.slug === currentSlug);
   if (i === -1) return {};
   return {

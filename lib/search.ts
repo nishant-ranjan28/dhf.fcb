@@ -1,5 +1,5 @@
 import type { Match, NewsPost } from "./types";
-import type { BlogPost } from "./blog/types";
+import type { BlogSummary } from "./blog/types";
 
 export interface SearchHit {
   title: string;
@@ -18,7 +18,7 @@ export interface SearchResults {
 export interface SearchSources {
   matches: Match[];
   news: NewsPost[];
-  blog: BlogPost[];
+  blog: BlogSummary[];
 }
 
 const MIN_QUERY = 2;

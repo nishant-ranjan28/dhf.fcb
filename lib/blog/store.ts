@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { toSlug } from "@/lib/slug";
-import type { BlogPost, BlogPostInput, SocialPostLink } from "./types";
+import type { BlogPost, BlogPostInput, BlogSummary, SocialPostLink } from "./types";
 
 // Upstash Redis is enabled when both env vars are present.
 //
@@ -21,10 +21,14 @@ const REDIS_TOKEN =
 
 const POSTS_INDEX_KEY = "blog:index"; // sorted set of slugs scored by createdAt
 const POST_KEY_PREFIX = "blog:post:";
+const POST_META_KEY_PREFIX = "blog:meta:";
 
 interface BlogStore {
-  list(opts?: { limit?: number; offset?: number }): Promise<BlogPost[]>;
+  /** Metadata only — never loads post bodies. */
+  list(opts?: { limit?: number; offset?: number }): Promise<BlogSummary[]>;
   get(slug: string): Promise<BlogPost | null>;
+  /** Cheap existence check for the view beacon; avoids fetching the body. */
+  exists(slug: string): Promise<boolean>;
   create(input: BlogPostInput): Promise<BlogPost>;
   /** Attach social announcement permalinks after the post has been announced. */
   updateSocialPosts(slug: string, socialPosts: SocialPostLink[]): Promise<BlogPost | null>;
@@ -43,17 +47,50 @@ function makeRedisStore(client: Redis): BlogStore {
         rev: true,
       })) as string[];
       if (slugs.length === 0) return [];
-      const keys = slugs.map((s) => POST_KEY_PREFIX + s);
-      const posts = await client.mget<BlogPost[]>(...keys);
-      return posts.filter((p): p is BlogPost => p !== null);
+
+      // Metadata records keep the hot list path small. Older posts created
+      // before this record existed fall back to a one-time full-post read and
+      // lazily backfill their metadata, so no admin action is required.
+      const metaKeys = slugs.map((s) => POST_META_KEY_PREFIX + s);
+      const metas = (await client.mget<BlogSummary[]>(...metaKeys)) as (
+        | BlogSummary
+        | null
+      )[];
+      const missing = slugs.filter((_, i) => metas[i] == null);
+      if (missing.length === 0) {
+        return metas.filter((p): p is BlogSummary => p !== null);
+      }
+
+      const fullKeys = missing.map((s) => POST_KEY_PREFIX + s);
+      const fullPosts = (await client.mget<BlogPost[]>(...fullKeys)) as (
+        | BlogPost
+        | null
+      )[];
+      const backfilled = new Map<string, BlogSummary>();
+      await Promise.all(
+        fullPosts.map(async (p) => {
+          if (!p) return;
+          const summary = toSummary(p);
+          backfilled.set(p.slug, summary);
+          await client.set(POST_META_KEY_PREFIX + p.slug, summary).catch(() => {});
+        }),
+      );
+
+      return slugs
+        .map((s, i) => metas[i] ?? backfilled.get(s))
+        .filter((p): p is BlogSummary => p !== undefined);
     },
     async get(slug) {
       return (await client.get<BlogPost>(POST_KEY_PREFIX + slug)) ?? null;
+    },
+    async exists(slug) {
+      return (await client.zscore(POSTS_INDEX_KEY, slug)) !== null;
     },
     async create(input) {
       const post = buildPost(input);
       await Promise.all([
         client.set(POST_KEY_PREFIX + post.slug, post),
+        client.set(POST_META_KEY_PREFIX + post.slug, toSummary(post)),
         client.zadd(POSTS_INDEX_KEY, {
           score: +new Date(post.createdAt),
           member: post.slug,
@@ -70,12 +107,18 @@ function makeRedisStore(client: Redis): BlogStore {
         socialPosts,
         updatedAt: new Date().toISOString(),
       };
-      await client.set(key, updated);
+      await Promise.all([
+        client.set(key, updated),
+        client.set(POST_META_KEY_PREFIX + slug, toSummary(updated)),
+      ]);
       return updated;
     },
     async delete(slug) {
       const removed = (await client.del(POST_KEY_PREFIX + slug)) > 0;
-      await client.zrem(POSTS_INDEX_KEY, slug);
+      await Promise.all([
+        client.del(POST_META_KEY_PREFIX + slug),
+        client.zrem(POSTS_INDEX_KEY, slug),
+      ]);
       return removed;
     },
   };
@@ -89,10 +132,14 @@ function makeMemoryStore(): BlogStore {
     async list({ limit = 20, offset = 0 } = {}) {
       return [...posts.values()]
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-        .slice(offset, offset + limit);
+        .slice(offset, offset + limit)
+        .map(toSummary);
     },
     async get(slug) {
       return posts.get(slug) ?? null;
+    },
+    async exists(slug) {
+      return posts.has(slug);
     },
     async create(input) {
       const post = buildPost(input);
@@ -120,6 +167,12 @@ function makeMemoryStore(): BlogStore {
 }
 
 // ---------- Shared helpers ----------
+
+/** Strip the one field list pages never need. */
+function toSummary(post: BlogPost): BlogSummary {
+  const { body: _body, ...summary } = post;
+  return summary;
+}
 
 function buildPost(input: BlogPostInput): BlogPost {
   const now = new Date().toISOString();

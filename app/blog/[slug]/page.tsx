@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Fragment } from "react";
+import { cache, Fragment } from "react";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { NativeBanner } from "@/components/NativeBanner";
@@ -20,9 +20,14 @@ import { env } from "@/lib/env";
 
 // force-dynamic: the post page reads from Upstash on every request. We
 // previously used ISR (revalidate=60) but a 404 cached at the moment
-// Upstash was unreachable would persist for the full window. Page render
-// is server-fast (single Redis GET); skipping ISR is the correct trade.
+// Upstash was unreachable would persist for the full window. The full post
+// body is fetched once per request (shared with generateMetadata), while the
+// related/navigation list reads metadata only.
 export const dynamic = "force-dynamic";
+
+// `generateMetadata` and the page render both need the full post. React's
+// request-scoped cache avoids fetching the same body twice.
+const getPost = cache(async (slug: string) => blogStore().get(slug));
 
 export async function generateMetadata({
   params,
@@ -30,7 +35,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await blogStore().get(slug);
+  const post = await getPost(slug);
   if (!post) return { title: "Post not found" };
   // AdSense-safety: posts younger than 10 minutes return noindex,follow so
   // search engines don't pick up a half-baked autopost while we're still in
@@ -62,7 +67,7 @@ export default async function BlogPostPage({
 }) {
   const { slug } = await params;
   const [post, allPosts] = await Promise.all([
-    blogStore().get(slug),
+    getPost(slug),
     blogStore().list({ limit: 100 }),
   ]);
   if (!post) notFound();

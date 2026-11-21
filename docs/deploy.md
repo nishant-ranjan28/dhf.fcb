@@ -52,6 +52,11 @@ The blog (`/blog` + `/admin/blog`) uses **Upstash Redis** for post storage. With
 
 3. Redeploy. The blog now persists.
 
+> **Bandwidth note:** list pages read `blog:meta:<slug>` records, not the full
+> `blog:post:<slug>` bodies. New posts write both records; posts created before
+> the split are backfilled lazily on their first list read. This keeps the free
+> Upstash tier from spending ~350 KB per article view on unrelated post bodies.
+
 > **Note on env-var names:** the Vercel Upstash integration historically
 > injects the legacy Vercel-KV names `KV_REST_API_URL` / `KV_REST_API_TOKEN`
 > rather than `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. The

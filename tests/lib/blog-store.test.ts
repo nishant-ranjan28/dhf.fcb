@@ -28,6 +28,16 @@ describe("blogStore (in-memory fallback)", () => {
     const list = await s.list();
     expect(list).toHaveLength(1);
     expect(list[0].slug).toBe("first-post");
+    // List paths must not carry the full markdown body — that was the source
+    // of the Upstash bandwidth blow-up.
+    expect(list[0]).not.toHaveProperty("body");
+  });
+
+  it("checks existence without reading the post body", async () => {
+    const s = blogStore();
+    await s.create({ title: "Exists", body: "x" });
+    expect(await s.exists("exists")).toBe(true);
+    expect(await s.exists("missing")).toBe(false);
   });
 
   it("lists posts newest-first", async () => {

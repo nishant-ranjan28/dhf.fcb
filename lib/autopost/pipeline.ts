@@ -31,7 +31,7 @@ type GateResult =
   | { ok: true; missingEntities?: string[] }
   | { ok: false; reason: GateSkipReason; diag: GateDiagnostics };
 import type { GenerateResult } from "./generate";
-import type { BlogPost, SocialPostLink } from "@/lib/blog/types";
+import type { BlogPost, BlogSummary, SocialPostLink } from "@/lib/blog/types";
 
 const DAY_CAP = 24;
 const MANUAL_COOLDOWN_MS = 55 * 60 * 1000;
@@ -224,7 +224,7 @@ function socialPostsFromAnnounces(
 function runGates(args: {
   draft: DraftPost;
   item: SelectedNewsItem;
-  recent: BlogPost[];
+  recent: BlogSummary[];
 }): GateResult {
   const wc = explainWordCount(args.draft.body);
   if (!wc.ok) {

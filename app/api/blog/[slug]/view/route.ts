@@ -16,9 +16,11 @@ export async function POST(
   const { slug } = await params;
 
   // Validate the slug actually maps to a published post — prevents the
-  // counter being filled with junk slugs from random POSTs.
-  const post = await blogStore().get(slug);
-  if (!post) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // counter being filled with junk slugs from random POSTs. A sorted-set
+  // existence check avoids fetching the entire post body just to increment.
+  if (!(await blogStore().exists(slug))) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   const ua = req.headers.get("user-agent") ?? "";
   if (BOT_RE.test(ua)) {

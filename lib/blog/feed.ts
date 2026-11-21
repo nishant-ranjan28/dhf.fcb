@@ -2,7 +2,7 @@
 // fetching and caching. Feed readers, Google Discover, and RSS-driven
 // syndicators (dlvr.it, IFTTT, Zapier) consume this.
 
-import type { BlogPost } from "./types";
+import type { BlogSummary } from "./types";
 
 function esc(s: string): string {
   return s
@@ -13,7 +13,7 @@ function esc(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-export function buildRssFeed(posts: BlogPost[], siteUrl: string): string {
+export function buildRssFeed(posts: BlogSummary[], siteUrl: string): string {
   const base = siteUrl.replace(/\/$/, "");
   const items = posts
     .map((p) => {
