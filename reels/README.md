@@ -61,6 +61,18 @@ Optional repo secrets, if you want to change the defaults:
 ### 4. First real run
 **Actions → Reels - generate drafts → Run workflow.** A drafts issue appears in about 10 minutes. Comment `approve 1`, then run **Reels - publish** to post it immediately. Scheduled runs only start once these workflows are on the default branch.
 
+## Fully automatic running
+
+GitHub's own schedule delays or skips runs on quiet repos, so the reliable trigger is the same external hourly scheduler (cron-job.org) that drives auto-post:
+
+1. Create a fine-grained GitHub token: GitHub → Settings → Developer settings → Fine-grained tokens → Generate. Repository access: only `nishant-ranjan28/dhf.fcb`. Permissions: **Actions: Read and write** (nothing else). Pick the longest expiry you are comfortable with and note the date.
+2. Add it in Vercel as `GITHUB_DISPATCH_TOKEN` and redeploy.
+3. In cron-job.org, add a job: every hour, `POST https://dhf-fcb.iamnishant.in/api/cron/reels`, header `Authorization: Bearer <CRON_TOKEN>` (the same value as the auto-post job), empty body.
+
+Each hourly call starts `reels-publish`, and between 07:00 and 12:59 IST also `reels-generate`. The workflows keep their own rules: one batch of drafts a day, posts only between 09:00 and 01:00 IST, at least 2.5 hours apart, duplicates skipped. GitHub's schedule stays on as a backup.
+
+With `AUTO_APPROVE_AFTER_HOURS=4`, drafts nobody rejects are approved after 4 hours, so the page runs with no daily action. Set `AUTO_APPROVE=true` instead to post drafts as soon as they are made, with no review window.
+
 ## Daily use (2–5 minutes)
 - **✅ / ❌** on each draft.
 - **Reply to a draft with a voice note** to replace the AI voice with yours. Read the captions on screen; the video is re-rendered at the next publish run and auto-approved. Your own voice usually gets better reach and is clearly original content.

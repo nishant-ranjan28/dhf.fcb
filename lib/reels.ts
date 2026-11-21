@@ -274,3 +274,48 @@ export async function publishPhoto(opts: {
     return fail(message(err));
   }
 }
+
+/** Hours (IST) in which the morning draft job is started. It makes drafts once a day and exits
+ *  straight away on later starts, so a few attempts cost little. */
+const GENERATE_HOURS_IST = [7, 8, 9, 10, 12];
+
+function istHour(now: Date): number {
+  return (now.getUTCHours() + 5 + Math.floor((now.getUTCMinutes() + 30) / 60)) % 24;
+}
+
+/** Start the Reels workflows through the GitHub API. Called hourly by the same external
+ *  scheduler that drives auto-post, because GitHub's own cron drops runs on quiet repos.
+ *  The workflows decide for themselves whether there is anything to do. */
+export async function dispatchReelWorkflows(
+  now = new Date(),
+): Promise<ReelsResult<{ started: string[]; errors: Record<string, string> }>> {
+  const token = process.env.GITHUB_DISPATCH_TOKEN?.trim();
+  if (!token) return fail("GITHUB_DISPATCH_TOKEN is not configured");
+  const repo = process.env.REELS_GITHUB_REPO?.trim() || "nishant-ranjan28/dhf.fcb";
+  const workflows = ["reels-publish.yml"];
+  if (GENERATE_HOURS_IST.includes(istHour(now))) workflows.unshift("reels-generate.yml");
+  const started: string[] = [];
+  const errors: Record<string, string> = {};
+  for (const wf of workflows) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${wf}/dispatches`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "content-type": "application/json",
+        },
+        // force=false: the scheduled checks (once-a-day drafts, posting hours, gap) still apply
+        body: JSON.stringify({ ref: "main", inputs: { force: "false" } }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.status === 204) started.push(wf);
+      else errors[wf] = `HTTP ${res.status}: ${(await res.text()).replace(/\s+/g, " ").slice(0, 200)}`;
+    } catch (err) {
+      errors[wf] = message(err);
+    }
+  }
+  if (!started.length) return fail(`no workflow started: ${JSON.stringify(errors)}`);
+  return { ok: true, started, errors };
+}

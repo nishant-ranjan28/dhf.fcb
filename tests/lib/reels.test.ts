@@ -167,6 +167,43 @@ describe("/api/cron/reels", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("starts publish every hour and generate in the morning, with force off", async () => {
+    process.env.GITHUB_DISPATCH_TOKEN = "gh-token";
+    const { dispatchReelWorkflows } = await import("@/lib/reels");
+    const urls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      urls.push(String(input));
+      expect(JSON.parse(String(init?.body))).toEqual({ ref: "main", inputs: { force: "false" } });
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer gh-token");
+      return new Response(null, { status: 204 });
+    });
+    // 02:00 UTC = 07:30 IST: both workflows
+    expect(await dispatchReelWorkflows(new Date("2026-11-22T02:00:00Z"))).toEqual({
+      ok: true,
+      started: ["reels-generate.yml", "reels-publish.yml"],
+      errors: {},
+    });
+    // 12:00 UTC = 17:30 IST: publish only
+    urls.length = 0;
+    await dispatchReelWorkflows(new Date("2026-11-22T12:00:00Z"));
+    expect(urls).toEqual([
+      "https://api.github.com/repos/nishant-ranjan28/dhf.fcb/actions/workflows/reels-publish.yml/dispatches",
+    ]);
+    delete process.env.GITHUB_DISPATCH_TOKEN;
+  });
+
+  it("treats an empty body as the hourly trigger", async () => {
+    delete process.env.GITHUB_DISPATCH_TOKEN;
+    const r = await POST(
+      new Request("https://site.example/api/cron/reels", {
+        method: "POST",
+        headers: { authorization: "Bearer test-cron-token" },
+      }),
+    );
+    expect(r.status).toBe(502);
+    expect((await r.json()).error).toMatch(/GITHUB_DISPATCH_TOKEN/);
+  });
+
   it("fails cleanly when Facebook is not configured", async () => {
     delete process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
     const r = await POST(req({ action: "publish", videoUrl: ASSET, description: "d" }));
