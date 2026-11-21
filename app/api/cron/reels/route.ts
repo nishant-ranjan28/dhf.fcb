@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
-import { generateReelScripts, publishPhoto, publishReel, reelMatches, reelSquad } from "@/lib/reels";
+import {
+  dispatchReelWorkflows,
+  generateReelScripts,
+  publishPhoto,
+  publishReel,
+  reelMatches,
+  reelSquad,
+} from "@/lib/reels";
 
 // Called by the Reels workflows in .github/workflows/reels-*.yml with the same
 // CRON_TOKEN the auto-post trigger uses. See reels/README.md.
@@ -13,7 +20,9 @@ export async function POST(req: Request) {
   }
   let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    const text = await req.text();
+    // An empty body means the hourly trigger: cron services often cannot send JSON.
+    body = text.trim() ? (JSON.parse(text) as Record<string, unknown>) : { action: "dispatch" };
   } catch {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
@@ -65,6 +74,11 @@ export async function POST(req: Request) {
         comment: str("comment").slice(0, 500) || undefined,
       });
       console.log(JSON.stringify({ kind: "reels", action: "photo", ...r }));
+      return NextResponse.json(r, { status: r.ok ? 200 : 502 });
+    }
+    case "dispatch": {
+      const r = await dispatchReelWorkflows();
+      console.log(JSON.stringify({ kind: "reels", action: "dispatch", ...r }));
       return NextResponse.json(r, { status: r.ok ? 200 : 502 });
     }
     default:
