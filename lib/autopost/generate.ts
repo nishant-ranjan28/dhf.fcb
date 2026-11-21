@@ -23,9 +23,9 @@ export type GenerateResult =
 
 export async function generateDraft(
   item: SelectedNewsItem,
-  opts?: { missingEntities?: string[] },
+  opts?: { missingEntities?: string[]; minWords?: number },
 ): Promise<GenerateResult> {
-  const prompt = buildPrompt(item, opts?.missingEntities);
+  const prompt = buildPrompt(item, opts);
   let sawQuota = false;
   const details: string[] = [];
 
@@ -57,14 +57,21 @@ export async function generateDraft(
   };
 }
 
-function buildPrompt(item: SelectedNewsItem, missingEntities?: string[]): string {
-  const repair =
-    missingEntities && missingEntities.length > 0
-      ? `
-
-REQUIRED REVISION: an earlier draft was rejected because these names/words did not appear in the body: ${JSON.stringify(missingEntities)}.
-You MUST write each of them EXACTLY as spelled (verbatim, case-insensitive) at least once in the body. Do not substitute a nickname or a translated form. This is the single most important requirement — a draft missing any of them is rejected again.`
-      : "";
+function buildPrompt(
+  item: SelectedNewsItem,
+  opts?: { missingEntities?: string[]; minWords?: number },
+): string {
+  const missingEntities = opts?.missingEntities;
+  const minWords = opts?.minWords;
+  const repairs: string[] = [];
+  if (missingEntities && missingEntities.length > 0) {
+    repairs.push(`REQUIRED REVISION: an earlier draft was rejected because these names/words did not appear in the body: ${JSON.stringify(missingEntities)}.
+You MUST write each of them EXACTLY as spelled (verbatim, case-insensitive) at least once in the body. Do not substitute a nickname or a translated form. This is the single most important requirement — a draft missing any of them is rejected again.`);
+  }
+  if (minWords) {
+    repairs.push(`REQUIRED REVISION: the earlier draft was too short. Rewrite the SAME story with AT LEAST ${minWords} words of body copy. Expand the analysis in each section — do not repeat filler or restate the same sentence.`);
+  }
+  const repair = repairs.length > 0 ? `\n\n${repairs.join("\n\n")}` : "";
   return `You are a sports blogger for BarcaPulse, an FC Barcelona and FIFA-focused fan blog.
 
 A news story has just broken. Source title: "${item.source.title}".
@@ -72,16 +79,19 @@ Source summary: "${item.source.content.slice(0, 600)}".
 Source URL: ${item.source.link ?? "(no link)"}
 
 Write an ORIGINAL, SHORT BarcaPulse post about this story. Rules:
-- 300-420 words total. Strictly NO long essays — dense, skimmable copy wins.
+- 300-420 words total. Count as you write — a post under 280 words is rejected.
+  Strictly NO long essays: dense, skimmable copy wins. Hit every section's
+  minimum below; do not stop early.
 - Markdown body with EXACTLY these four H2 sections, in this order:
   ## Quick take
-  Two sentences, max 45 words. Lead with the single most important fact.
+  Two or three sentences, 40-60 words. Lead with the single most important fact.
   ## What happened
-  Two short paragraphs, 50-70 words each. Max three sentences per paragraph.
+  Two paragraphs, AT LEAST 75 words each. Max four sentences per paragraph.
   ## Why it matters
-  Three bullets, 20-30 words each. Add real analysis for Barcelona / the player / the season — do NOT just summarize the source.
+  Three bullets, AT LEAST 40 words each. Add real analysis for Barcelona / the
+  player / the season — do NOT just summarize the source.
   ## What's next
-  One short paragraph, max 60 words. Give a concrete thing to watch.
+  One paragraph, AT LEAST 70 words. Give a concrete thing to watch.
 - Confident, opinionated voice. No "as an AI" disclaimers.
 - Use the entities ${JSON.stringify(item.entities)} naturally in the body — they must each appear verbatim at least once (e.g. if "Barcelona" is in the list, use the word "Barcelona", not just "Barça" or "the club").
 - Do NOT invent social-media links or embed codes. Leave those to the app.

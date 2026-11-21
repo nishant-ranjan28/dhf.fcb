@@ -46,7 +46,7 @@ export interface PipelineDeps {
   fetchNews: () => Promise<NewsPost[]>;
   generate: (
     item: SelectedNewsItem,
-    opts?: { missingEntities?: string[] },
+    opts?: { missingEntities?: string[]; minWords?: number },
   ) => Promise<GenerateResult>;
   announceFn: (post: BlogPost, siteUrl: string) => Promise<AnnounceResults>;
   siteUrl: string;
@@ -152,6 +152,28 @@ export async function runPipeline(deps: PipelineDeps): Promise<PipelineResult> {
     );
     gateResult = { ok: true };
   }
+  // A short draft is a soft failure: ask once for an expanded rewrite rather
+  // than dropping the hour. The stronger prompt normally makes this unnecessary.
+  if (!gateResult.ok && gateResult.reason === "gate_word_count") {
+    const expanded = await deps.generate(selected, { minWords: 320 });
+    if (expanded.ok) {
+      const exGates = runGates({
+        draft: expanded.draft,
+        item: selected,
+        recent: recentForDupe,
+      });
+      if (exGates.ok) {
+        draft = expanded.draft;
+        gateResult = exGates;
+        console.log(
+          JSON.stringify({ kind: "autopost", expandedWords: explainWordCount(draft.body).count }),
+        );
+      } else {
+        console.warn(JSON.stringify({ kind: "autopost", expandRejected: exGates.reason }));
+      }
+    }
+  }
+
   if (!gateResult.ok) {
     await state.recordSkip(gateResult.reason);
     return { status: "skipped", reason: gateResult.reason, diagnostics: gateResult.diag };
