@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 import { scorePrediction, type PredictionOutcome, type Scoreline } from "./scoring";
 
 // Same dual env-var detection as lib/blog/store.ts.
@@ -252,7 +252,7 @@ let instance: PredictionsStore | null = null;
 export function predictionsStore(): PredictionsStore {
   if (instance) return instance;
   if (REDIS_URL && REDIS_TOKEN) {
-    instance = makeRedisStore(new Redis({ url: REDIS_URL, token: REDIS_TOKEN }));
+    instance = makeRedisStore(createRedis({ url: REDIS_URL, token: REDIS_TOKEN }));
   } else {
     instance = makeMemoryStore();
   }

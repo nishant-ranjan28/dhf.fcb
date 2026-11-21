@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 import type { Match } from "@/lib/types";
 import { generateMatchInsights, type MatchInsights } from "./groq";
 
@@ -31,7 +31,7 @@ function cacheKey(match: Match): string {
 let redis: Redis | null | undefined;
 function getRedis(): Redis | null {
   if (redis === undefined) {
-    redis = REDIS_URL && REDIS_TOKEN ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN }) : null;
+    redis = REDIS_URL && REDIS_TOKEN ? createRedis({ url: REDIS_URL, token: REDIS_TOKEN }) : null;
   }
   return redis;
 }

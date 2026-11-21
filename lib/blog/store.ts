@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 import { toSlug } from "@/lib/slug";
 import type { BlogPost, BlogPostInput, BlogSummary, SocialPostLink } from "./types";
 
@@ -215,7 +215,7 @@ let storeInstance: BlogStore | null = null;
 export function blogStore(): BlogStore {
   if (storeInstance) return storeInstance;
   if (REDIS_URL && REDIS_TOKEN) {
-    const client = new Redis({ url: REDIS_URL, token: REDIS_TOKEN });
+    const client = createRedis({ url: REDIS_URL, token: REDIS_TOKEN });
     storeInstance = makeRedisStore(client);
   } else {
     storeInstance = makeMemoryStore();

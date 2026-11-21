@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 
 // Same dual env-var detection as lib/blog/store.ts — see the comment there.
 const REDIS_URL =
@@ -122,7 +122,7 @@ let storeInstance: HighlightsStore | null = null;
 export function highlightsStore(): HighlightsStore {
   if (storeInstance) return storeInstance;
   if (REDIS_URL && REDIS_TOKEN) {
-    storeInstance = makeRedisStore(new Redis({ url: REDIS_URL, token: REDIS_TOKEN }));
+    storeInstance = makeRedisStore(createRedis({ url: REDIS_URL, token: REDIS_TOKEN }));
   } else {
     storeInstance = makeMemoryStore();
   }

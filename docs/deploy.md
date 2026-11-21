@@ -62,6 +62,29 @@ The blog (`/blog` + `/admin/blog`) uses **Upstash Redis** for post storage. With
 > rather than `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. The
 > app's blog store accepts either pair, so you don't need to rename them.
 
+### GitHub storage fallback
+
+Every Redis-backed module (`blog`, views, autopost state, polls, predictions,
+highlights, recaps, AI insights) now uses a client that fails over to a
+GitHub-backed JSON store on the first Redis error. This keeps publishing and
+page renders alive when Upstash throttles the free tier.
+
+- It reuses `GITHUB_DISPATCH_TOKEN` (used for Reels workflow dispatch). To use
+  a separate token, set `GITHUB_BLOG_TOKEN` with **Contents: write** on this
+  repo. Optional `GITHUB_BLOG_REPO` overrides the default repository.
+- Documents live in `data/store/*.json`. `vercel.json` ignores builds for
+  commits that only change those files, so store writes never redeploy the site.
+- Set `STORAGE_BACKEND=github` to skip Upstash entirely (useful while it is
+  throttled). Remove it to resume trying Upstash first.
+- View counters deliberately do **not** fail over — a view must never create a
+  GitHub commit. They read as 0 while Upstash is unavailable.
+
+To import the old posts after the Upstash monthly reset, read the
+`blog:post:*`, `blog:meta:*` and `blog:index` keys from the Upstash console and
+write them into `data/store` using the same key names (filenames are
+`<key>-<sha256-prefix>.json`, see `lib/storage/github.ts`). Alternatively keep
+Upstash as primary and let the first list request backfill metadata.
+
 To write posts, navigate to `/admin/login`, paste your `ADMIN_TOKEN`, then `/admin/blog/new`.
 
 ### Optional — Telegram channel auto-push

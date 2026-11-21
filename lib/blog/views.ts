@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 
 // Same env-var detection as lib/blog/store.ts — see comment there for why
 // both name pairs are accepted.
@@ -19,22 +19,36 @@ interface ViewStore {
 function makeRedisStore(client: Redis): ViewStore {
   return {
     async increment(slug) {
-      const v = await client.incr(KEY_PREFIX + slug);
-      return Number(v);
+      try {
+        const v = await client.incr(KEY_PREFIX + slug);
+        return Number(v);
+      } catch {
+        // View counts are vanity metrics. Never fail a page or beacon because
+        // Redis is throttled, and never turn one view into a GitHub commit.
+        return 0;
+      }
     },
     async get(slug) {
-      const v = await client.get<number | string>(KEY_PREFIX + slug);
-      return Number(v) || 0;
+      try {
+        const v = await client.get<number | string>(KEY_PREFIX + slug);
+        return Number(v) || 0;
+      } catch {
+        return 0;
+      }
     },
     async getBatch(slugs) {
       if (slugs.length === 0) return {};
-      const keys = slugs.map((s) => KEY_PREFIX + s);
-      const vals = await client.mget<(number | string | null)[]>(...keys);
-      const out: Record<string, number> = {};
-      slugs.forEach((s, i) => {
-        out[s] = Number(vals[i]) || 0;
-      });
-      return out;
+      try {
+        const keys = slugs.map((s) => KEY_PREFIX + s);
+        const vals = await client.mget<(number | string | null)[]>(...keys);
+        const out: Record<string, number> = {};
+        slugs.forEach((s, i) => {
+          out[s] = Number(vals[i]) || 0;
+        });
+        return out;
+      } catch {
+        return Object.fromEntries(slugs.map((s) => [s, 0]));
+      }
     },
   };
 }
@@ -66,7 +80,9 @@ let storeInstance: ViewStore | null = null;
 export function viewStore(): ViewStore {
   if (storeInstance) return storeInstance;
   if (REDIS_URL && REDIS_TOKEN) {
-    storeInstance = makeRedisStore(new Redis({ url: REDIS_URL, token: REDIS_TOKEN }));
+    storeInstance = makeRedisStore(
+      createRedis({ url: REDIS_URL, token: REDIS_TOKEN, noFallback: true }),
+    );
   } else {
     storeInstance = makeMemoryStore();
   }

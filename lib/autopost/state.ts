@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createRedis, type Redis } from "@/lib/storage/redis";
 import type { GateDiagnostics } from "./gates";
 import type { AnnounceResults } from "./types";
 
@@ -235,7 +235,7 @@ let instance: AutopostState | null = null;
 export function autopostState(): AutopostState {
   if (instance) return instance;
   if (REDIS_URL && REDIS_TOKEN) {
-    instance = makeRedisState(new Redis({ url: REDIS_URL, token: REDIS_TOKEN }));
+    instance = makeRedisState(createRedis({ url: REDIS_URL, token: REDIS_TOKEN }));
   } else {
     instance = makeMemoryState();
   }
