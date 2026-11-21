@@ -85,7 +85,8 @@ def parse(text):
 def process(state):
     """Apply approve / reject comments from trusted users to pending drafts."""
     seen = state.setdefault("gh_seen", {})
-    open_issues = sorted({it["issue"] for it in state["items"] if it.get("issue") and it["status"] == "pending"})
+    open_issues = sorted({it["issue"] for it in state["items"]
+                          if it.get("issue") and it["status"] in ("pending", "approved")})
     for number in open_issues:
         try:
             comments = _api("GET", f"issues/{number}/comments?per_page=100")
@@ -101,8 +102,11 @@ def process(state):
                 continue
             changed = 0
             for action, targets in parse(c.get("body")):
+                # approve acts on pending drafts; reject also pulls an approved draft that has not
+                # been posted yet, so a change of mind after "approve all" still works
+                allowed = ("pending",) if action == "approve" else ("pending", "approved")
                 for it in state["items"]:
-                    if it.get("issue") == number and it["status"] == "pending" and \
+                    if it.get("issue") == number and it["status"] in allowed and \
                             (targets == "all" or it.get("n") in targets):
                         it["status"] = "approved" if action == "approve" else "rejected"
                         changed += 1

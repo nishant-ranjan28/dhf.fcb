@@ -35,7 +35,7 @@ The workflows reuse the repo's existing `CRON_TOKEN` secret (the one the auto-po
 
 The `publish` action only accepts videos from this repo's `queue` release. The link comment needs `pages_manage_engagement` on the Page token; without it the comment is skipped and the Reel still posts.
 
-**Approval happens in a GitHub issue.** Each morning the generate job opens an issue called "Reel drafts · <date>" with a link to every draft video, its script and its photo credits. Reply with `approve all`, `approve 1 3` or `reject 2`. Only comments from the repo owner or collaborators count. Nothing is posted without an approval.
+**Approval happens in a GitHub issue.** Each morning the generate job opens an issue called "Reel drafts · <date>" with a link to every draft video, its script and its photo credits. Reply with `approve all`, `approve 1 3` or `reject 2`. `reject` also pulls a draft that was approved but has not been posted yet. Only comments from the repo owner or collaborators count. Nothing is posted without an approval.
 
 Optional repo secrets, if you want to change the defaults:
 
@@ -54,7 +54,7 @@ Optional repo secrets, if you want to change the defaults:
 | `MAX_POSTS_PER_DAY` | `5` | Safety cap |
 | `VOICE_MODE` | `tts` | `own` = drafts arrive as scripts only; your voice-note reply renders and approves them |
 | `KOKORO_VOICE` | `bm_george` | Also try `bm_lewis`, `am_michael`, `am_onyx` |
-| `AUTO_APPROVE_AFTER_HOURS` | `0` (off) | e.g. `6` = post drafts you haven't rejected after 6 hours |
+| `AUTO_APPROVE_AFTER_HOURS` | `0` (off) | e.g. `4` = drafts you haven't rejected are approved after 4 hours. Applies only to drafts less than 20 hours old |
 | `AUTO_APPROVE` | `false` | Skip approval entirely |
 | `COMMENT_LINK` | `true` | First comment on each Reel links to the site |
 
