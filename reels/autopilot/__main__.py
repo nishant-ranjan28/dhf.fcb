@@ -6,6 +6,7 @@ python -m autopilot sample [file]     # render a sample script offline (no API k
 """
 import argparse
 import json
+import re
 import secrets
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -224,6 +225,30 @@ def _housekeeping(state):
             it["status"] = "expired"
 
 
+STOP = {"the", "a", "an", "and", "of", "in", "to", "for", "with", "on", "at", "is", "as", "his", "her", "their",
+        "barca", "barça", "barcelona", "fc", "new", "after", "how", "why", "what", "s", "till", "until"}
+
+
+def _title_words(title):
+    return {w for w in re.findall(r"[a-z0-9à-ÿ]+", title.lower()) if w not in STOP and len(w) > 1}
+
+
+def _duplicate_of(item, posted, squad):
+    """The already-posted item this one repeats (same squad player in the headline, or a near-identical
+    headline), else None. Stops two versions of one story going out, whatever was approved."""
+    title = item["script"]["title"]
+    names = writer._key_names({"title": title}, squad) if (squad or {}).get("players") else set()
+    words = _title_words(title)
+    for p in posted:
+        other = p["script"]["title"]
+        if names and names & writer._key_names({"title": other}, squad):
+            return p
+        ow = _title_words(other)
+        if words and ow and len(words & ow) / len(words | ow) >= 0.5:
+            return p
+    return None
+
+
 def _post_next(state, force=False):
     since = store.now() - timedelta(hours=24)
     posted_24h = [i for i in state["items"] if i.get("posted_at")
@@ -246,7 +271,25 @@ def _post_next(state, force=False):
     if not ready:
         print("[publish] nothing approved")
         return
-    it = sorted(ready, key=lambda i: (PRIORITY.get(i.get("kind") or i["script"]["format"], 9), i["created"]))[0]
+    ready.sort(key=lambda i: (PRIORITY.get(i.get("kind") or i["script"]["format"], 9), i["created"]))
+    recent = [i for i in state["items"] if i.get("posted_at")
+              and datetime.fromisoformat(i["posted_at"]) > store.now() - timedelta(days=3)]
+    squad = sources.fetch_squad() if recent else {}
+    it = None
+    for cand in ready:
+        dup = _duplicate_of(cand, recent, squad)
+        if dup:
+            cand["status"] = "duplicate"
+            print(f"[publish] skipped '{cand['script']['title']}': repeats '{dup['script']['title']}'")
+            if cand.get("issue"):
+                ghissue.comment(cand["issue"], f"⏭️ Skipped draft {cand.get('n')}: same story as "
+                                               f"'{dup['script']['title']}', which is already posted.")
+            continue
+        it = cand
+        break
+    if it is None:
+        print("[publish] nothing left to post after skipping duplicates")
+        return
     s = it["script"]
     photo = it.get("kind") == "photo"
     name = it["image"] if photo else it["video"]
