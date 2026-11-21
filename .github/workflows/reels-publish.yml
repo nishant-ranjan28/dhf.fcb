@@ -2,13 +2,16 @@ name: Reels - publish
 
 on:
   schedule:
-    # Each run reads Telegram approvals / voice notes, then posts ONE approved Reel.
-    - cron: "0 7 * * *"      # 12:30 IST
-    - cron: "30 10 * * *"    # 16:00 IST
-    - cron: "0 14 * * *"     # 19:30 IST
-    - cron: "30 16 * * *"    # 22:00 IST
-    - cron: "0 19 * * *"     # 00:30 IST (evening in Spain)
+    # Hourly, because GitHub delays or drops scheduled runs on quiet repos. Each run reads
+    # approvals, then posts one approved draft only if it is inside the posting window (09:00-01:00
+    # IST) and the last post was at least MIN_GAP_HOURS (2.5) ago.
+    - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Post now, ignoring posting hours and the gap between posts"
+        type: boolean
+        default: true
 
 permissions:
   contents: write            # the draft queue is stored on a GitHub release
@@ -65,4 +68,11 @@ jobs:
           AUTO_APPROVE: ${{ vars.AUTO_APPROVE }}
           AUTO_APPROVE_AFTER_HOURS: ${{ vars.AUTO_APPROVE_AFTER_HOURS }}
           COMMENT_LINK: ${{ vars.COMMENT_LINK }}
-        run: python -m autopilot publish
+          MIN_GAP_HOURS: ${{ vars.MIN_GAP_HOURS }}
+          POST_HOURS_IST: ${{ vars.POST_HOURS_IST }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" != "false" ]; then
+            python -m autopilot publish --force
+          else
+            python -m autopilot publish
+          fi

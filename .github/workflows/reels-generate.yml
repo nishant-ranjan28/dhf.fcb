@@ -2,8 +2,19 @@ name: Reels - generate drafts
 
 on:
   schedule:
-    - cron: "0 2 * * *"      # 07:30 IST daily
+    # GitHub delays or drops scheduled runs on quiet repos, so try several times each morning.
+    # Only the first run of the day makes drafts; later ones exit straight away.
+    - cron: "30 1 * * *"     # 07:00 IST
+    - cron: "20 2 * * *"     # 07:50 IST
+    - cron: "10 3 * * *"     # 08:40 IST
+    - cron: "40 4 * * *"     # 10:10 IST
+    - cron: "10 7 * * *"     # 12:40 IST
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Make drafts even if today's already exist"
+        type: boolean
+        default: true
 
 permissions:
   contents: write            # the draft queue is stored on a GitHub release
@@ -60,4 +71,9 @@ jobs:
           AUTO_APPROVE: ${{ vars.AUTO_APPROVE }}
           AUTO_APPROVE_AFTER_HOURS: ${{ vars.AUTO_APPROVE_AFTER_HOURS }}
           COMMENT_LINK: ${{ vars.COMMENT_LINK }}
-        run: python -m autopilot generate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" != "false" ]; then
+            python -m autopilot generate --force
+          else
+            python -m autopilot generate
+          fi
