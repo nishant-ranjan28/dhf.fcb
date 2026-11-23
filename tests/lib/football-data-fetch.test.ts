@@ -34,6 +34,25 @@ describe("fetchFootballDataMatches", () => {
     expect(out[0].slug).toBe("fc-barcelona-vs-real-madrid");
   });
 
+  it("sends the requested date window when provided", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ matches: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchFootballDataMatches({
+      apiKey: "k",
+      dateFrom: "2026-11-16",
+      dateTo: "2026-12-14",
+    });
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get("dateFrom")).toBe("2026-11-16");
+    expect(url.searchParams.get("dateTo")).toBe("2026-12-14");
+  });
+
   it("throws on non-200", async () => {
     vi.stubGlobal(
       "fetch",

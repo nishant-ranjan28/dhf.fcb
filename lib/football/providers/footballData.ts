@@ -121,16 +121,24 @@ export interface FdOpts {
   apiKey: string;
   competitions?: string[];
   status?: string;
+  /** Inclusive UTC dates (YYYY-MM-DD). Without these the API returns only
+   *  today's matches, which leaves the site with no fixtures on quiet days. */
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export async function fetchFootballDataMatches({
   apiKey,
   competitions = ["PD", "CL", "WC"],
   status,
+  dateFrom,
+  dateTo,
 }: FdOpts): Promise<Match[]> {
   const params = new URLSearchParams();
   params.set("competitions", competitions.join(","));
   if (status) params.set("status", status);
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
   const url = `${FD_BASE}/matches?${params}`;
   const json = await limiter(() =>
     fetchJson<FdResponse>(url, { headers: { "X-Auth-Token": apiKey } }),

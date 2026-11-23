@@ -268,10 +268,20 @@ function allMockMatches(): Match[] {
 
 function buildChain(): ProviderChain {
   const providers: Array<{ name: string; fn: () => Promise<Match[]> }> = [];
+  // The matches endpoint defaults to *today only*. On a quiet day that leaves
+  // no fixtures at all and the chain falls back to the archived World Cup
+  // file. Ask for a rolling window: last week's results + three weeks ahead.
+  const utcDate = (days: number) =>
+    new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
   if (env.footballDataKey) {
     providers.push({
       name: "football-data.org",
-      fn: () => fetchFootballDataMatches({ apiKey: env.footballDataKey! }),
+      fn: () =>
+        fetchFootballDataMatches({
+          apiKey: env.footballDataKey!,
+          dateFrom: utcDate(-7),
+          dateTo: utcDate(21),
+        }),
     });
   }
   providers.push({ name: "openfootball-static", fn: () => loadStaticFixtures() });
