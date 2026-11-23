@@ -28,18 +28,6 @@ export const POLLS: Record<string, Poll> = {
       { id: "other", label: "Someone else", flag: "⚽" },
     ],
   },
-  "wc-2026-winner": {
-    id: "wc-2026-winner",
-    question: "Who lifts the 2026 World Cup?",
-    options: [
-      { id: "argentina", label: "Argentina", flag: "🇦🇷" },
-      { id: "france", label: "France", flag: "🇫🇷" },
-      { id: "brazil", label: "Brazil", flag: "🇧🇷" },
-      { id: "england", label: "England", flag: "🏴" },
-      { id: "spain", label: "Spain", flag: "🇪🇸" },
-      { id: "other", label: "Someone else", flag: "⚽" },
-    ],
-  },
 };
 
 export function getPoll(id: string): Poll | undefined {

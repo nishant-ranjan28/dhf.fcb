@@ -3,7 +3,6 @@ import { NewsCard } from "@/components/NewsCard";
 import { TelegramCTA } from "@/components/TelegramCTA";
 import { AdSlot } from "@/components/AdSlot";
 import { CountdownTimer } from "@/components/CountdownTimer";
-import { PollCard } from "@/components/PollCard";
 import { FixturesTabs } from "@/components/FixturesTabs";
 import { StandingsTable } from "@/components/StandingsTable";
 import { HighlightsReel } from "@/components/HighlightsReel";
@@ -12,7 +11,6 @@ import { getMatchesByCompetition } from "@/lib/football";
 import { listNews } from "@/lib/news";
 import { computeStandings } from "@/lib/standings";
 import { highlightsStore } from "@/lib/highlights/store";
-import { getPoll } from "@/lib/poll/polls";
 import { FEATURED_PLAYERS } from "@/data/fifa-featured";
 
 export const revalidate = 60;
@@ -40,15 +38,12 @@ export default async function FifaPage() {
 
   const standings = computeStandings(matches);
   const nextMatch = upcoming[0];
-  const poll = getPoll("wc-2026-winner");
 
   return (
     <>
       {nextMatch && <CountdownTimer match={nextMatch} />}
 
       <TelegramCTA />
-
-      {poll && <PollCard poll={poll} />}
 
       <SectionTitle title="Fixtures" />
       <FixturesTabs live={live} upcoming={upcoming} results={recent} />
