@@ -15,8 +15,10 @@ import { HighlightsReel } from "@/components/HighlightsReel";
 import {
   getAllMatches,
   getMatchesByCompetition,
-  getTrendingMatches,
-  getUpcomingMatches,
+  isCurrentMatch,
+  selectRecent,
+  selectTrending,
+  selectUpcoming,
 } from "@/lib/football";
 import { followableTeams, type FollowableTeam } from "@/lib/follows";
 import { listNews } from "@/lib/news";
@@ -44,12 +46,10 @@ function FeedAd() {
 }
 
 export default async function HomePage() {
-  const [allMatches, fifaMatches, upcomingAll, trending, barcaNews, fifaNews, blogs, highlights] =
+  const [allMatches, fifaMatches, barcaNews, fifaNews, blogs, highlights] =
     await Promise.all([
       getAllMatches(),
       getMatchesByCompetition("fifa"),
-      getUpcomingMatches(3),
-      getTrendingMatches(4),
       listNews("barca", 6, { langs: ["en"] }),
       listNews("fifa", 4, { langs: ["en"] }),
       blogStore().list({ limit: 6 }),
@@ -58,24 +58,29 @@ export default async function HomePage() {
 
   const views = blogs.length ? await viewStore().getBatch(blogs.map((p) => p.slug)) : {};
 
+  const now = Date.now();
   const live = allMatches
     .filter((m) => m.status === "LIVE" || m.status === "HT")
     .slice(0, 4);
-  const recent = allMatches
-    .filter((m) => m.status === "FT")
-    .sort((a, b) => +new Date(b.kickoff) - +new Date(a.kickoff))
-    .slice(0, 4);
-  const now = Date.now();
+  const recent = selectRecent(allMatches, 4, now);
   // A schedule with no scores is still marked SCHED, so a past date must not
   // be treated as "upcoming" — otherwise the countdown says "kicking off now"
   // for a match from months ago.
-  const fifaUpcoming = fifaMatches
-    .filter((m) => m.status === "SCHED" && +new Date(m.kickoff) > now)
-    .sort((a, b) => +new Date(a.kickoff) - +new Date(b.kickoff));
-  const standings = computeStandings(fifaMatches).slice(0, 2);
+  const fifaUpcoming = selectUpcoming(fifaMatches, 1, now);
+  // The 2026 World Cup finished in July; its standings and scorers are only
+  // meaningful while the tournament actually has matches around the present.
+  const fifaIsCurrent = fifaMatches.some((m) => isCurrentMatch(m, now));
+  const standings = fifaIsCurrent ? computeStandings(fifaMatches).slice(0, 2) : [];
   const poll = getPoll("ucl-2026-27-winner");
   // When nothing is live, show real results instead of an empty-state box.
   const headlineMatches = live.length > 0 ? live : recent;
+  const upcomingAll = selectUpcoming(allMatches, 3, now);
+  // Trending repeats nothing already shown above, so the same fixture never
+  // appears three times down one page.
+  const shown = new Set([...headlineMatches, ...upcomingAll].map((m) => m.slug));
+  const trending = selectTrending(allMatches, 6, now)
+    .filter((m) => !shown.has(m.slug))
+    .slice(0, 4);
 
   // A few one-tap follow chips for the "Your Teams" empty state, in a
   // preferred order so the row feels curated rather than alphabetical.
@@ -182,8 +187,12 @@ export default async function HomePage() {
 
       <FeedAd />
 
-      <SectionTitle title="Top Scorers" href="/fifa" accent="gold" />
-      <TopScorers players={FEATURED_PLAYERS} />
+      {fifaIsCurrent && (
+        <>
+          <SectionTitle title="Top Scorers" href="/fifa" accent="gold" />
+          <TopScorers players={FEATURED_PLAYERS} />
+        </>
+      )}
 
       {highlights.length > 0 && (
         <>

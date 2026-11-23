@@ -15,6 +15,7 @@ import {
   _resetFixtureIdCache,
   fetchApiFootballEvents,
   hasMappedLeague,
+  normalizeTeamName,
   resolveAfFixtureId,
 } from "./football/providers/apiFootball";
 import { loadStaticFixtures } from "./football/providers/staticFixtures";
@@ -300,11 +301,7 @@ export async function getLiveMatches(): Promise<Match[]> {
 }
 
 export async function getUpcomingMatches(limit = 5): Promise<Match[]> {
-  const all = await getAllMatches();
-  return all
-    .filter((m) => m.status === "SCHED")
-    .sort((a, b) => +new Date(a.kickoff) - +new Date(b.kickoff))
-    .slice(0, limit);
+  return selectUpcoming(await getAllMatches(), limit);
 }
 
 export async function getMatchesByCompetition(comp: Competition): Promise<Match[]> {
@@ -312,18 +309,70 @@ export async function getMatchesByCompetition(comp: Competition): Promise<Match[
   return all.filter((m) => m.competition === comp);
 }
 
-export async function getTrendingMatches(limit = 4): Promise<Match[]> {
-  const all = await getAllMatches();
-  // Trending heuristic: live > recent FT > scheduled, capped.
-  const ranked = [...all].sort((a, b) => weight(b) - weight(a));
-  return ranked.slice(0, limit);
+/** How far either side of "now" a match still counts as current coverage.
+ *  A tournament that finished months ago must never resurface as news. */
+export const CURRENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Providers spell the club differently ("FC Barcelona" vs "Barcelona"), so
+ *  compare the normalised name rather than the raw one. */
+export function involvesBarca(m: Match): boolean {
+  return (
+    normalizeTeamName(m.home.name) === "barcelona" ||
+    normalizeTeamName(m.away.name) === "barcelona"
+  );
 }
 
-function weight(m: Match): number {
-  if (m.status === "LIVE") return 100;
-  if (m.status === "HT") return 90;
-  if (m.status === "FT") return 50 - Math.abs(Date.now() - +new Date(m.kickoff)) / 60_000 / 60;
-  return 30 - (+new Date(m.kickoff) - Date.now()) / 60_000 / 60;
+/** True when a match is live, recently finished, or about to start. Past
+ *  schedule rows (no score, kick-off gone) are stale, not current. */
+export function isCurrentMatch(m: Match, now = Date.now()): boolean {
+  const kickoff = +new Date(m.kickoff);
+  if (kickoff < now - CURRENT_WINDOW_MS || kickoff > now + CURRENT_WINDOW_MS) {
+    return false;
+  }
+  return !(m.status === "SCHED" && kickoff <= now);
+}
+
+/** Barça's own fixtures outrank everything else on this site's home page. */
+function barcaFirst(a: Match, b: Match): number {
+  return Number(involvesBarca(b)) - Number(involvesBarca(a));
+}
+
+export function selectUpcoming(all: Match[], limit: number, now = Date.now()): Match[] {
+  return all
+    // A schedule without scores is still SCHED, so only a future kick-off is
+    // genuinely upcoming.
+    .filter((m) => m.status === "SCHED" && +new Date(m.kickoff) > now)
+    .sort((a, b) => barcaFirst(a, b) || +new Date(a.kickoff) - +new Date(b.kickoff))
+    .slice(0, limit);
+}
+
+export function selectRecent(all: Match[], limit: number, now = Date.now()): Match[] {
+  return all
+    .filter((m) => m.status === "FT" && isCurrentMatch(m, now))
+    .sort((a, b) => barcaFirst(a, b) || +new Date(b.kickoff) - +new Date(a.kickoff))
+    .slice(0, limit);
+}
+
+export function selectTrending(all: Match[], limit: number, now = Date.now()): Match[] {
+  return all
+    .filter((m) => isCurrentMatch(m, now))
+    // Trending heuristic: live > recently finished > scheduled, Barça first.
+    .sort((a, b) => weight(b, now) - weight(a, now))
+    .slice(0, limit);
+}
+
+export async function getTrendingMatches(limit = 4): Promise<Match[]> {
+  return selectTrending(await getAllMatches(), limit);
+}
+
+function weight(m: Match, now: number): number {
+  let base: number;
+  if (m.status === "LIVE") base = 100;
+  else if (m.status === "HT") base = 90;
+  else if (m.status === "FT") base = 50 - Math.abs(now - +new Date(m.kickoff)) / 3_600_000;
+  // Future scheduled match: sooner ranks higher, and never above a result.
+  else base = 30 - Math.max(0, +new Date(m.kickoff) - now) / 3_600_000;
+  return base + (involvesBarca(m) ? 25 : 0);
 }
 
 // ---------- Per-match enrichment (API-Football) ----------
