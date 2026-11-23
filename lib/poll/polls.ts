@@ -16,6 +16,18 @@ export interface Poll {
  * counts live in Redis (see lib/poll/store.ts) and are never reset by a deploy.
  */
 export const POLLS: Record<string, Poll> = {
+  "ucl-2026-27-winner": {
+    id: "ucl-2026-27-winner",
+    question: "Who wins the 2026/27 Champions League?",
+    options: [
+      { id: "barcelona", label: "FC Barcelona" },
+      { id: "real-madrid", label: "Real Madrid" },
+      { id: "manchester-city", label: "Manchester City" },
+      { id: "bayern-munich", label: "Bayern Munich" },
+      { id: "psg", label: "Paris Saint-Germain" },
+      { id: "other", label: "Someone else", flag: "⚽" },
+    ],
+  },
   "wc-2026-winner": {
     id: "wc-2026-winner",
     question: "Who lifts the 2026 World Cup?",

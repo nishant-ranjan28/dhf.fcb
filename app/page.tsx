@@ -18,6 +18,7 @@ import {
   getTrendingMatches,
   getUpcomingMatches,
 } from "@/lib/football";
+import { followableTeams, type FollowableTeam } from "@/lib/follows";
 import { listNews } from "@/lib/news";
 import { computeStandings } from "@/lib/standings";
 import { getPoll } from "@/lib/poll/polls";
@@ -64,13 +65,33 @@ export default async function HomePage() {
     .filter((m) => m.status === "FT")
     .sort((a, b) => +new Date(b.kickoff) - +new Date(a.kickoff))
     .slice(0, 4);
+  const now = Date.now();
+  // A schedule with no scores is still marked SCHED, so a past date must not
+  // be treated as "upcoming" — otherwise the countdown says "kicking off now"
+  // for a match from months ago.
   const fifaUpcoming = fifaMatches
-    .filter((m) => m.status === "SCHED")
+    .filter((m) => m.status === "SCHED" && +new Date(m.kickoff) > now)
     .sort((a, b) => +new Date(a.kickoff) - +new Date(b.kickoff));
   const standings = computeStandings(fifaMatches).slice(0, 2);
-  const poll = getPoll("wc-2026-winner");
+  const poll = getPoll("ucl-2026-27-winner");
   // When nothing is live, show real results instead of an empty-state box.
   const headlineMatches = live.length > 0 ? live : recent;
+
+  // A few one-tap follow chips for the "Your Teams" empty state, in a
+  // preferred order so the row feels curated rather than alphabetical.
+  const followable = followableTeams(allMatches);
+  const preferredTeams = [
+    "FC Barcelona",
+    "Argentina",
+    "Brazil",
+    "France",
+    "England",
+    "Real Madrid",
+  ];
+  const teamSuggestions: FollowableTeam[] = preferredTeams
+    .map((name) => followable.find((t) => t.name === name))
+    .filter((t): t is FollowableTeam => Boolean(t))
+    .slice(0, 4);
 
   return (
     // [data-wide-layout] opts the home page into the same 1120px desktop shell
@@ -81,16 +102,20 @@ export default async function HomePage() {
         <CategoryTiles />
       </div>
 
-      <YourTeams />
-
-      {/* Interactive quick facts: next kick-off and the fan poll sit side by
-          side on desktop, stacked on mobile. */}
-      {(fifaUpcoming[0] || poll) && (
-        <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:px-4">
-          <div>{fifaUpcoming[0] && <CountdownTimer match={fifaUpcoming[0]} flush />}</div>
-          <div>{poll && <PollCard poll={poll} flush />}</div>
+      {/* Personal feed + fan poll form one balanced row on desktop, so the
+          poll never sits beside an empty column when there is no kick-off to
+          count down to. On mobile everything stacks in reading order. */}
+      <div className={poll ? "lg:grid lg:grid-cols-2 lg:gap-4 lg:px-4 lg:items-start" : ""}>
+        <div>
+          <YourTeams flush suggestions={teamSuggestions} />
+          {fifaUpcoming[0] && <CountdownTimer match={fifaUpcoming[0]} flush />}
         </div>
-      )}
+        {poll && (
+          <div>
+            <PollCard poll={poll} flush />
+          </div>
+        )}
+      </div>
 
       {headlineMatches.length > 0 && (
         <>

@@ -3,15 +3,25 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MatchCard } from "./MatchCard";
-import { useFollows } from "./follows/store";
+import { toggleFollow, useFollows } from "./follows/store";
 import type { Match } from "@/lib/types";
 
-export function YourTeams() {
+interface Suggestion {
+  name: string;
+  short: string;
+}
+
+export function YourTeams({
+  flush = false,
+  suggestions = [],
+}: {
+  /** Drop the horizontal gutter on desktop so the section can sit in a grid. */
+  flush?: boolean;
+  /** Quick-follow chips shown in the empty state. */
+  suggestions?: Suggestion[];
+}) {
   const follows = useFollows();
   const [matches, setMatches] = useState<Match[] | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (follows.length === 0) {
@@ -26,12 +36,11 @@ export function YourTeams() {
     return () => ctrl.abort();
   }, [follows]);
 
-  // Don't render anything on the server / first paint — this is a personalised,
-  // client-only section keyed off localStorage.
-  if (!mounted) return null;
+  const gutter = flush ? "px-4 lg:px-0" : "px-4";
+  const edge = flush ? "mx-4 lg:mx-0" : "mx-4";
 
   const heading = (
-    <div className="flex items-baseline justify-between mt-6 mb-2 px-4">
+    <div className={`flex items-baseline justify-between mt-6 mb-2 ${gutter} ${flush ? "lg:mt-0" : ""}`}>
       <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-white uppercase">
         <span className="h-3.5 w-1 rounded-full bg-barca-gold" aria-hidden />
         Your Teams
@@ -46,11 +55,37 @@ export function YourTeams() {
     return (
       <>
         {heading}
-        <Link href="/teams" className="block mx-4">
-          <div className="rounded-xl border border-dashed border-ink-line bg-ink-soft p-4 text-center text-sm text-ink-muted hover:text-white hover:border-white/30 transition">
-            ⭐ Follow your favourite teams to see their matches here.
+        <div className={`${edge} rounded-xl border border-dashed border-ink-line bg-ink-soft p-4`}>
+          <div className="flex items-start gap-3">
+            <span className="text-xl leading-none" aria-hidden>
+              ⭐
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">No teams followed yet</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">
+                Follow clubs and national teams to see their live scores, fixtures and results here.
+              </p>
+            </div>
           </div>
-        </Link>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {suggestions.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                onClick={() => toggleFollow(t.name)}
+                className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-ink-muted ring-1 ring-ink-line transition hover:text-white hover:ring-white/40 active:scale-95"
+              >
+                + {t.name}
+              </button>
+            ))}
+            <Link
+              href="/teams"
+              className="rounded-full bg-barca-gold/15 px-3 py-1.5 text-xs font-semibold text-barca-gold ring-1 ring-barca-gold/40 transition hover:bg-barca-gold/25"
+            >
+              Browse all teams →
+            </Link>
+          </div>
+        </div>
       </>
     );
   }
@@ -59,7 +94,7 @@ export function YourTeams() {
     return (
       <>
         {heading}
-        <div className="mx-4 rounded-xl bg-ink-soft border border-ink-line p-4 text-center text-sm text-ink-muted">
+        <div className={`${edge} rounded-xl bg-ink-soft border border-ink-line p-4 text-center text-sm text-ink-muted`}>
           No upcoming or recent matches for your teams right now.
         </div>
       </>
@@ -69,7 +104,7 @@ export function YourTeams() {
   return (
     <>
       {heading}
-      <div className="px-4 space-y-2">
+      <div className={`${flush ? "px-4 lg:px-0" : "px-4"} space-y-2`}>
         {(matches ?? []).map((m) => (
           <MatchCard key={m.slug} match={m} />
         ))}

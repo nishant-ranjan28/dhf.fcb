@@ -30,8 +30,9 @@ export default async function FifaPage() {
   ]);
 
   const live = matches.filter((m) => m.status === "LIVE" || m.status === "HT");
+  const now = Date.now();
   const upcoming = matches
-    .filter((m) => m.status === "SCHED")
+    .filter((m) => m.status === "SCHED" && +new Date(m.kickoff) > now)
     .sort((a, b) => +new Date(a.kickoff) - +new Date(b.kickoff));
   const recent = matches
     .filter((m) => m.status === "FT")
