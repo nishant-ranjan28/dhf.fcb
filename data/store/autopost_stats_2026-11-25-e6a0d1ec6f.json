@@ -1,1 +1,1 @@
-{"value":{"t":"string","v":{"date":"2026-11-25","generated":24,"published":24,"errors":0,"by_gemini":0,"by_groq":24,"by_openrouter":0,"skipped_by_reason":{}}},"expiresAt":1798236775655}
+{"value":{"t":"string","v":{"date":"2026-11-25","generated":24,"published":24,"errors":0,"by_gemini":0,"by_groq":24,"by_openrouter":0,"skipped_by_reason":{"day_cap_reached":1}}},"expiresAt":1798241425811}
